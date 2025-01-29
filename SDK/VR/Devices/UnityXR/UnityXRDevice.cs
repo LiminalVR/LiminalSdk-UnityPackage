@@ -265,8 +265,12 @@ namespace Liminal.SDK.XR
 			// Create a tracker, this tracker will be driven by the real life camera as local position from floor.
 			// The head is used as an offset. This is because existing limapps use case move the head up and around etc.
 			// Note, they also use VRAvatar or maybe nesting of the avatar. 
-            _tracker = new GameObject("Tracker");
-            _offset = new GameObject("Offset");
+
+            if(_tracker == null)
+                _tracker = new GameObject("Tracker");
+
+            if(_offset == null)
+                _offset = new GameObject("Offset");
 
             _offset.transform.SetParent(avatar.Head.Transform);
             _offset.transform.Identity();
