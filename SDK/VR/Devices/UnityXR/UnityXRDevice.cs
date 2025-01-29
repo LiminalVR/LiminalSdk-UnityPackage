@@ -281,7 +281,9 @@ namespace Liminal.SDK.XR
 			avatar.Head.CenterEyeCamera.transform.SetParent(_tracker.transform);
 			avatar.Head.CenterEyeCamera.transform.Identity();
 
-            _cameraDriver = _tracker.AddComponent<TrackedPoseDriver>();
+            if(_cameraDriver == null)
+                _cameraDriver = _tracker.AddComponent<TrackedPoseDriver>();
+
 			RecenterHeight();
 
             _startTime = Time.time;
