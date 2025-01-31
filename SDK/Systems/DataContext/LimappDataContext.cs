@@ -34,7 +34,9 @@ namespace Liminal.Shared
                 Features = new Dictionary<string, object>()
                 {
                     {LimappRuntimeSettings.RuntimeDurationKey, TimeSpan.FromSeconds(600)},
-                }
+                },
+                Tags = new Dictionary<string, string>()
+
             };
 
             CreateData(settings);
@@ -59,6 +61,29 @@ namespace Liminal.Shared
     {
         public const string RuntimeDurationKey = "RuntimeDuration";
         public Dictionary<string, object> Features;
+        public Dictionary<string, string> Tags;
+
+        public void SetRuntimeTag(string key, string value)
+        {
+            if (!Tags.ContainsKey(key))
+            {
+                Tags.Add(key, value);
+            }
+            else
+            {
+                Tags[key] = value;
+            }
+        }
+
+        public string GetRuntimeTag(string key)
+        {
+            if (Tags.TryGetValue(key, out var tag))
+            {
+                return tag;
+            }
+
+            return "";
+        }
 
         public void SetRuntimeDuration(object value)
         {

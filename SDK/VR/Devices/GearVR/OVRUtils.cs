@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Liminal.SDK.VR.Avatars;
 using Liminal.SDK.VR.Input;
 

@@ -4,6 +4,9 @@ using Liminal.SDK.Core;
 using Liminal.SDK.VR;
 using Liminal.SDK.VR.Input;
 using System.Text;
+using Liminal.SDK.VR.Avatars;
+using Liminal.SDK.VR.Devices.GearVR.Avatar;
+using Liminal.SDK.VR.Utils;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -25,8 +28,56 @@ public class ControllerInputExample : MonoBehaviour
             AppendDeviceInput(inputStringBuilder, device.SecondaryInputDevice, "Secondary");
 
             InputText.text = inputStringBuilder.ToString();
-
         }
+
+        var avatar = VRAvatar.Active;
+        if (avatar != null)
+        {
+            var rightHand = avatar.PrimaryHand;
+            var helper = rightHand.Transform.GetComponentInChildren<GearVRControllerInputVisual>(true);
+        }
+    }
+
+    public void SendControllerHaptics()
+    {
+        var device = VRDevice.Device;
+        device?.PrimaryInputDevice?.SendInputHaptics(.5f, .5f, 0.05f);
+    }
+
+    public void SetControllerVisibility(bool state)
+    {
+        var avatar = VRAvatar.Active;
+        avatar.PrimaryHand.SetControllerVisibility(state);
+        avatar.SecondaryHand.SetControllerVisibility(state);
+    }
+
+    /// <summary>
+    /// This example only hide the left hand pointer so you can still use the right hand to re-activate it.
+    /// </summary>
+    /// <param name="state"></param>
+    public void SetPointerVisibility(bool state)
+    {
+        GearVRAvatar.PointerActivationType = EPointerActivationType.None;
+
+        var avatar = VRAvatar.Active;
+
+        switch (state)
+        {
+            case false:
+                //avatar.PrimaryHand?.InputDevice?.Pointer.Deactivate();
+                avatar.SecondaryHand?.InputDevice?.Pointer.Deactivate();
+                break;
+            case true:
+                avatar.PrimaryHand?.InputDevice?.Pointer.Activate();
+                avatar.SecondaryHand?.InputDevice?.Pointer.Activate();
+                break;
+        }
+    }
+
+    [ContextMenu("Hide Controllers")]
+    public void TestHideControllers()
+    {
+        SetControllerVisibility(false);
     }
 
     public void AppendDeviceInput(StringBuilder builder, IVRInputDevice inputDevice, string deviceName)

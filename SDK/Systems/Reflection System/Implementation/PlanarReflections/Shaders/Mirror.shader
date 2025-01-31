@@ -99,6 +99,7 @@
 
                 float _OffsetX;
                 float _OffsetEnabled;
+                float _CustomTime; // (relies on a script running on the CPU - will not work without it)
 
                 float _Rift;
                 float _Quest;
@@ -147,7 +148,8 @@
                     fixed4 ramp = tex2D(_RampTex, i.uvRamp);
 
                     // Ripple
-                    float2 uvr = i.uvRipple + float2(0, _Time.x * _RippleSpeed);
+                    float offset = _CustomTime != 0 ? _CustomTime : _Time.x * _RippleSpeed;
+                    float2 uvr = i.uvRipple + float2(0, offset);
                     fixed3 nrm = UnpackNormal(tex2D(_RippleTex, uvr));
                     i.screenPos.xy += nrm.r * _RippleStrength;
 
