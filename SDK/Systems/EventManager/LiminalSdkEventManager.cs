@@ -1,23 +1,27 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
 
-namespace Liminal.Shared
+namespace Liminal.SDK.EventManager
 {
+    /// <summary>
+    /// Manages event registration and execution between the Platform and the SDK (or vice versa).  
+    /// This allows events to be pre-registered before starting an experience and triggered when needed.  
+    /// Example: The Platform can queue up events that the experience will trigger at the right moment.
+    /// </summary>
     public static class LiminalSdkEventManager
     {
 
-        private static List<ActionEventData> _platformActionDataList = new List<ActionEventData>();
-        private static List<ActionEventData> _experienceActionDataList = new List<ActionEventData>();
+        private static List<LiminalSdkActionEventData> _platformActionDataList = new List<LiminalSdkActionEventData>();
+        private static List<LiminalSdkActionEventData> _experienceActionDataList = new List<LiminalSdkActionEventData>();
 
         /// <summary>
         /// Add actionEvent to list from the experience / liminal SDK side that can be triggered by the platform when necessary
         /// </summary>
         /// <param name="eventData">EventData to be added to list</param>
-        public static void AddActionEventForPlatform(ActionEventData eventData)
+        public static void AddActionEventForPlatform(LiminalSdkActionEventData eventData)
         {
             _platformActionDataList.Add(eventData);
         }
@@ -26,7 +30,7 @@ namespace Liminal.Shared
         /// Add actionEvent to list from platform side that can be triggered by an experience when necessary
         /// </summary>
         /// <param name="eventData">EventData to be added to list</param>
-        public static void AddActionEventForExperience(ActionEventData eventData)
+        public static void AddActionEventForExperience(LiminalSdkActionEventData eventData)
         {
             _experienceActionDataList.Add(eventData);
         }
@@ -36,9 +40,9 @@ namespace Liminal.Shared
         /// </summary>
         /// <param name="removeEventAfterInvoking">If true, removes event after it has been invoked</param>
         /// <returns></returns>
-        public static IEnumerator TriggerFirstPlatformActionEvent(bool removeEventAfterInvoking = true)
+        public static IEnumerator TriggerFirstPlatformActionEventRoutine(bool removeEventAfterInvoking = true)
         {
-            yield return TriggerFirstActionEvent(_platformActionDataList);
+            yield return TriggerFirstActionEventRoutine(_platformActionDataList);
         }
 
         /// <summary>
@@ -46,16 +50,16 @@ namespace Liminal.Shared
         /// </summary>
         /// <param name="removeEventAfterInvoking">If true, removes event after it has been invoked</param>
         /// <returns></returns>
-        public static IEnumerator TriggerFirstExperienceActionEvent(bool removeEventAfterInvoking = true)
+        public static IEnumerator TriggerFirstExperienceActionEventRoutine(bool removeEventAfterInvoking = true)
         {
-            yield return TriggerFirstActionEvent(_experienceActionDataList);
+            yield return TriggerFirstActionEventRoutine(_experienceActionDataList);
         }
 
 
-        private static IEnumerator TriggerFirstActionEvent(List<ActionEventData> list, bool removeEventAfterInvoking = true)
+        private static IEnumerator TriggerFirstActionEventRoutine(List<LiminalSdkActionEventData> list, bool removeEventAfterInvoking = true)
         {
             var eventData = list.FirstOrDefault();
-            yield return TriggerEvent(eventData);
+            yield return TriggerEventRoutine(eventData);
             if (removeEventAfterInvoking)
             {
                 list.Remove(eventData);
@@ -68,9 +72,9 @@ namespace Liminal.Shared
         /// <param name="id">Id of the actionEvent</param>
         /// <param name="removeEventAfterInvoking">If true, removes event after it has been invoked</param>
         /// <returns></returns>
-        public static IEnumerator TriggerAllPlatformActionEventsWithId(string id, bool removeEventAfterInvoking = true)
+        public static IEnumerator TriggerAllPlatformActionEventsWithIdRoutine(string id, bool removeEventAfterInvoking = true)
         {
-            yield return TriggerAllActionEventsWithId(id, _platformActionDataList, removeEventAfterInvoking);
+            yield return TriggerAllActionEventsWithIdRoutine(id, _platformActionDataList, removeEventAfterInvoking);
         }
 
         /// <summary>
@@ -79,19 +83,19 @@ namespace Liminal.Shared
         /// <param name="id">Id of the actionEvent</param>
         /// <param name="removeEventAfterInvoking">If true, removes event after it has been invoked</param>
         /// <returns></returns>
-        public static IEnumerator TriggerAllExperienceActionEventsWithId(string id, bool removeEventAfterInvoking = true)
+        public static IEnumerator TriggerAllExperienceActionEventsWithIdRoutine(string id, bool removeEventAfterInvoking = true)
         {
-            yield return TriggerAllActionEventsWithId(id, _experienceActionDataList, removeEventAfterInvoking);
+            yield return TriggerAllActionEventsWithIdRoutine(id, _experienceActionDataList, removeEventAfterInvoking);
         }
 
-        private static IEnumerator TriggerAllActionEventsWithId(string id, List<ActionEventData> list, bool removeEventAfterInvoking)
+        private static IEnumerator TriggerAllActionEventsWithIdRoutine(string id, List<LiminalSdkActionEventData> list, bool removeEventAfterInvoking)
         {
             // Get all actionEvents with matching id, trigger each event and then remove from list
             var matchingEvents = list.FindAll(x => x.Id.Equals(id));
 
             foreach (var eventData in matchingEvents)
             {
-                yield return TriggerEvent(eventData);
+                yield return TriggerEventRoutine(eventData);
             }
 
             if (removeEventAfterInvoking)
@@ -118,39 +122,19 @@ namespace Liminal.Shared
             RemoveAllEventDataWithId(id, _experienceActionDataList);
         }
 
-        private static void RemoveAllEventDataWithId(string id, List<ActionEventData> list)
+        private static void RemoveAllEventDataWithId(string id, List<LiminalSdkActionEventData> list)
         {
             list.RemoveAll(x => x.Id.Equals(id));
         }
 
-        private static IEnumerator TriggerEvent(ActionEventData eventData)
+        private static IEnumerator TriggerEventRoutine(LiminalSdkActionEventData eventData)
         {
             // Get all actionEvents with matching id, trigger each event and then remove from list
             yield return new WaitForSeconds(eventData.Delay);
             eventData.Action?.Invoke();
         }
 
-        public class ActionEventData
-        {
-            public string Id;
-            public float Delay;
-            public Action Action;
-
-            public ActionEventData(Action action)
-                : this(Guid.NewGuid().ToString(), action) { }
-
-            public ActionEventData(string id, Action action, float delay = 0)
-            {
-                Id = id;
-                Action = action;
-                Delay = delay;
-            }
-
-            public void Trigger()
-            {
-                Action?.Invoke();
-            }
-        }
+        
     }
 
 }
