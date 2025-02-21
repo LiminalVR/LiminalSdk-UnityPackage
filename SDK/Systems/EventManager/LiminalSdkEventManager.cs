@@ -16,7 +16,7 @@ namespace Liminal.Shared
         /// <summary>
         /// Add actionEvent to list from the experience / liminal SDK side that can be triggered by the platform when necessary
         /// </summary>
-        /// <param name="eventData"></param>
+        /// <param name="eventData">EventData to be added to list</param>
         public static void AddActionEventForPlatform(ActionEventData eventData)
         {
             _platformActionDataList.Add(eventData);
@@ -25,7 +25,7 @@ namespace Liminal.Shared
         /// <summary>
         /// Add actionEvent to list from platform side that can be triggered by an experience when necessary
         /// </summary>
-        /// <param name="evnt"></param>
+        /// <param name="eventData">EventData to be added to list</param>
         public static void AddActionEventForExperience(ActionEventData eventData)
         {
             _experienceActionDataList.Add(eventData);
@@ -34,8 +34,9 @@ namespace Liminal.Shared
         /// <summary>
         /// Triggers the first actionEvent in the platformActionEvent list
         /// </summary>
+        /// <param name="removeEventAfterInvoking">If true, removes event after it has been invoked</param>
         /// <returns></returns>
-        public static IEnumerator TriggerFirstPlatformActionEvent()
+        public static IEnumerator TriggerFirstPlatformActionEvent(bool removeEventAfterInvoking = true)
         {
             yield return TriggerFirstActionEvent(_platformActionDataList);
         }
@@ -43,41 +44,47 @@ namespace Liminal.Shared
         /// <summary>
         /// Triggers the first actionEvent in the experienceActionEvent list
         /// </summary>
+        /// <param name="removeEventAfterInvoking">If true, removes event after it has been invoked</param>
         /// <returns></returns>
-        public static IEnumerator TriggerFirstExperienceActionEvent()
+        public static IEnumerator TriggerFirstExperienceActionEvent(bool removeEventAfterInvoking = true)
         {
             yield return TriggerFirstActionEvent(_experienceActionDataList);
         }
 
 
-        private static IEnumerator TriggerFirstActionEvent(List<ActionEventData> list)
+        private static IEnumerator TriggerFirstActionEvent(List<ActionEventData> list, bool removeEventAfterInvoking = true)
         {
             var eventData = list.FirstOrDefault();
             yield return TriggerEvent(eventData);
-            list.Remove(eventData);
+            if (removeEventAfterInvoking)
+            {
+                list.Remove(eventData);
+            }
         }
 
         /// <summary>
         /// Triggers all actionEvents within the platformActionEventList with matching Id
         /// </summary>
         /// <param name="id">Id of the actionEvent</param>
+        /// <param name="removeEventAfterInvoking">If true, removes event after it has been invoked</param>
         /// <returns></returns>
-        public static IEnumerator TriggerAllPlatformActionEventsWithId(string id)
+        public static IEnumerator TriggerAllPlatformActionEventsWithId(string id, bool removeEventAfterInvoking = true)
         {
-            yield return TriggerAllActionEventsWithId(id, _platformActionDataList);
+            yield return TriggerAllActionEventsWithId(id, _platformActionDataList, removeEventAfterInvoking);
         }
 
         /// <summary>
         /// Triggers all actionEvents within the experienceActionEventList with matching Id
         /// </summary>
         /// <param name="id">Id of the actionEvent</param>
+        /// <param name="removeEventAfterInvoking">If true, removes event after it has been invoked</param>
         /// <returns></returns>
-        public static IEnumerator TriggerAllExperienceActionEventsWithId(string id)
+        public static IEnumerator TriggerAllExperienceActionEventsWithId(string id, bool removeEventAfterInvoking = true)
         {
-            yield return TriggerAllActionEventsWithId(id, _experienceActionDataList);
+            yield return TriggerAllActionEventsWithId(id, _experienceActionDataList, removeEventAfterInvoking);
         }
 
-        private static IEnumerator TriggerAllActionEventsWithId(string id, List<ActionEventData> list)
+        private static IEnumerator TriggerAllActionEventsWithId(string id, List<ActionEventData> list, bool removeEventAfterInvoking)
         {
             // Get all actionEvents with matching id, trigger each event and then remove from list
             var matchingEvents = list.FindAll(x => x.Id.Equals(id));
@@ -87,7 +94,33 @@ namespace Liminal.Shared
                 yield return TriggerEvent(eventData);
             }
 
-            matchingEvents.ForEach(eventData => list.Remove(eventData));
+            if (removeEventAfterInvoking)
+            {
+                matchingEvents.ForEach(eventData => list.Remove(eventData));
+            }
+        }
+
+        /// <summary>
+        /// Remove all ActionEventData from platformActionEventList with matching id
+        /// </summary>
+        /// <param name="id">Id of the ActionEventData</param>
+        public static void RemoveAllPlatformEventDataWithId(string id)
+        {
+            RemoveAllEventDataWithId(id, _platformActionDataList);
+        }
+
+        /// <summary>
+        /// Remove all ActionEventData from experienceActionEventList with matching id
+        /// </summary>
+        /// <param name="id">Id of the ActionEventData</param>
+        public static void RemoveAllExperienceEventDataWithId(string id)
+        {
+            RemoveAllEventDataWithId(id, _experienceActionDataList);
+        }
+
+        private static void RemoveAllEventDataWithId(string id, List<ActionEventData> list)
+        {
+            list.RemoveAll(x => x.Id.Equals(id));
         }
 
         private static IEnumerator TriggerEvent(ActionEventData eventData)
