@@ -17,7 +17,7 @@ namespace Liminal.Shared
         /// Add actionEvent to list from the experience / liminal SDK side that can be triggered by the platform when necessary
         /// </summary>
         /// <param name="eventData"></param>
-        public static void QueueEventForPlatform(ActionEventData eventData)
+        public static void AddActionEventForPlatform(ActionEventData eventData)
         {
             _platformActionDataList.Add(eventData);
         }
@@ -26,7 +26,7 @@ namespace Liminal.Shared
         /// Add actionEvent to list from platform side that can be triggered by an experience when necessary
         /// </summary>
         /// <param name="evnt"></param>
-        public static void QueueEventForExperience(ActionEventData eventData)
+        public static void AddActionEventForExperience(ActionEventData eventData)
         {
             _experienceActionDataList.Add(eventData);
         }
@@ -96,8 +96,6 @@ namespace Liminal.Shared
             yield return new WaitForSeconds(eventData.Delay);
             eventData.Action?.Invoke();
         }
-
-
 
         public class ActionEventData
         {
