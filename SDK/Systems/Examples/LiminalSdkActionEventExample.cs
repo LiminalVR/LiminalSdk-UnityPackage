@@ -9,7 +9,7 @@ public class LiminalSdkActionEventExample : MonoBehaviour
     #region Example 1 - Platform Side Register & Experince side trigger
 
     /// <summary>
-    /// In this example, we will add an event that will be send the user to the login page from within an experience after a delay
+    /// In this example, we will add an event that will send the user to the login page from within an experience after a delay
     /// </summary>
     public class PlatformExample1
     {
