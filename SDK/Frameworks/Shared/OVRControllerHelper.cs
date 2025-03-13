@@ -131,6 +131,11 @@ public class OVRControllerHelper : MonoBehaviour
 		}
 
         var deviceModel = XRDeviceUtils.GetDeviceModelType();
+        
+        Debug.LogFormat("OVRControllerHelp: Active device model type: {0}", deviceModel);
+
+        deviceModel = deviceModel == EDeviceModelType.Quest2 ? EDeviceModelType.Quest3 : deviceModel;
+
         if (deviceModel == EDeviceModelType.Quest3)
         {
             activeControllerType = ControllerType.Quest3;
