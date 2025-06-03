@@ -25,6 +25,9 @@ namespace Liminal.Systems
         {
             var name = SystemInfo.deviceName;
 
+            Debug.LogFormat("XRDeviceUtils: System device name: {0}", name);
+            Debug.LogFormat("XRDeviceUtils: System graphics device name: {0}", SystemInfo.graphicsDeviceName);
+
             // For some reason quest 3 is unknown after we complete all the signing stages.
             if (name.Contains("Quest 3") || name.Contains("unknown"))
                 return EDeviceModelType.Quest3;
