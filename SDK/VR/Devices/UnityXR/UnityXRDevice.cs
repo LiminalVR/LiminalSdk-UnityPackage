@@ -107,7 +107,13 @@ namespace Liminal.SDK.XR
 		}
 
 		public void SetupAvatar(IVRAvatar avatar)
-		{
+        {
+            if (!Data.ContainsKey(avatar))
+            {
+                var setupData = new SetupData();
+                Data[avatar] = setupData;
+            }
+
             // It may be a smart idea to duplicate existing rig for comparison.
             /*var copy = GameObject.Instantiate(avatar.Transform.gameObject, avatar.Transform.parent);
             copy.transform.name = "Avatar Copy";
@@ -244,10 +250,14 @@ namespace Liminal.SDK.XR
             manager.transform.SetParent(avatar.Transform);
         }
 
-        private GameObject _tracker;
-        private GameObject _offset;
-        private TrackedPoseDriver _cameraDriver;
+        public Dictionary<IVRAvatar, SetupData> Data = new Dictionary<IVRAvatar, SetupData>();
 
+        public class SetupData
+        {
+            public GameObject _tracker;
+            public GameObject _offset;
+            public TrackedPoseDriver _cameraDriver;
+        }
 
 		private void SetupCameraRig(IVRAvatar avatar, XROrigin xrRig)
         {
@@ -266,25 +276,28 @@ namespace Liminal.SDK.XR
 			// The head is used as an offset. This is because existing limapps use case move the head up and around etc.
 			// Note, they also use VRAvatar or maybe nesting of the avatar. 
 
-            if(_tracker == null)
-                _tracker = new GameObject("Tracker");
+            var setupData = Data[avatar];
 
-            if(_offset == null)
-                _offset = new GameObject("Offset");
+            if(setupData._tracker == null)
+                setupData._tracker = new GameObject("Tracker");
 
-            _offset.transform.SetParent(avatar.Head.Transform);
-            _offset.transform.Identity();
+            if(setupData._offset == null)
+                setupData._offset = new GameObject("Offset");
 
-			_tracker.transform.SetParent(_offset.transform);
-            _tracker.transform.Identity();
+            setupData._offset.transform.SetParent(avatar.Head.Transform);
+            setupData._offset.transform.Identity();
 
-			avatar.Head.CenterEyeCamera.transform.SetParent(_tracker.transform);
+            setupData._tracker.transform.SetParent(setupData._offset.transform);
+            setupData._tracker.transform.Identity();
+
+            // We move the center eye but the tracker gets destroyed!
+			avatar.Head.CenterEyeCamera.transform.SetParent(setupData._tracker.transform);
 			avatar.Head.CenterEyeCamera.transform.Identity();
 
-            if(_cameraDriver == null)
-                _cameraDriver = _tracker.AddComponent<TrackedPoseDriver>();
+            if(setupData._cameraDriver == null)
+                setupData._cameraDriver = setupData._tracker.AddComponent<TrackedPoseDriver>();
 
-			RecenterHeight();
+			RecenterHeight(setupData);
 
             _startTime = Time.time;
         }
@@ -298,29 +311,35 @@ namespace Liminal.SDK.XR
         [Obsolete("No longer used, was used prior to Pico Neo when XR did not have Device Tracking.")]
         public static bool UpdateHeight = false;
 
+        public SetupData GetData(IVRAvatar avatar)
+        {
+            return avatar == null ? null : Data.GetValueOrDefault(avatar);
+        }
 
         /// <summary>
         /// Updates once per Tick from VRDeviceMonitor (const 0.5 seconds)
         /// </summary>
         public void Update()
         {
-            if (_tracker == null)
+            var avatar = VRAvatar.Active;
+            var setupData = GetData(avatar);
+
+            if (setupData == null || setupData._tracker == null)
                 return;
             
 			// The camera floor offset object is necessary to match the head position to make sure the controllers are in place.
 			// Do note a problem that will exist is if you bend up and down, that would kind of add an offset?
 
 			// I think was for PICO
-            var avatar = VRAvatar.Active;
             var xrRig = CreateXRRig(avatar);
-            xrRig.CameraFloorOffsetObject.transform.position = _offset.transform.position;
+            xrRig.CameraFloorOffsetObject.transform.position = setupData._offset.transform.position;
 
             var elapsed = Time.time - _startTime;
 
             if (UpdateHeight)
             {
                 if (elapsed < 3)
-                    RecenterHeight();
+                    RecenterHeight(setupData);
             }
 
             if (UpdateControllers)
@@ -337,11 +356,11 @@ namespace Liminal.SDK.XR
         /// Some Liminal Experiences are 6m in the sky and we expect that's where the user's POV starts from regardless or how tall they are.
         /// So thi s method offset it by the real world height from ground to line the user up.
         /// </summary>
-		public void RecenterHeight()
+		public void RecenterHeight(SetupData data)
         {
-			var realWorldHeight = _tracker.transform.localPosition.y;
+            var realWorldHeight = data._tracker.transform.localPosition.y;
 			var targetLocalPosition = new Vector3(0, -realWorldHeight, 0);
-            _offset.transform.localPosition = targetLocalPosition;
+            data._offset.transform.localPosition = targetLocalPosition;
         }
 	}
 }
