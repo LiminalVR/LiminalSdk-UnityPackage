@@ -4,11 +4,10 @@ using System.Reflection;
 using Liminal.Core.Fader;
 using Liminal.Platform.Experimental.App.Experiences;
 using Liminal.Platform.Experimental.Exceptions;
-using Liminal.Platform.Experimental.Extensions;
-using Liminal.Platform.Experimental.Services;
 using Liminal.Platform.Experimental.VR;
 using Liminal.SDK.Core;
 using Liminal.SDK.Serialization;
+using Liminal.SDK.VR.Utils;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
