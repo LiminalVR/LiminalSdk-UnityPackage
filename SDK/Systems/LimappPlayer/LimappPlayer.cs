@@ -70,9 +70,9 @@ namespace App.core
             }
         }
 
-        public void Play(int id)
+        public Coroutine Play(int id)
         {
-            StartCoroutine(PlayRoutine());
+            return StartCoroutine(PlayRoutine());
 
             IEnumerator PlayRoutine()
             {
