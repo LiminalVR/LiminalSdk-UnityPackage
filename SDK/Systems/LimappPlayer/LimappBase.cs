@@ -634,6 +634,11 @@ namespace App.Core
                 }
             }
         }
+
+        public void SetState(ELimappState state)
+        {
+            State = state;
+        }
     }
 }
 

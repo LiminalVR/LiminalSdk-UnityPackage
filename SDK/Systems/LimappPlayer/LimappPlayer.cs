@@ -50,13 +50,15 @@ namespace App.core
         }
 
         [ContextMenu("End")]
-        public void End()
+        public Coroutine End()
         {
-            StartCoroutine(EndRoutine());
+            return StartCoroutine(EndRoutine());
 
             IEnumerator EndRoutine()
             {
                 yield return _currentLimapp.Unload();
+                _currentLimapp = null;
+
                 SceneContainer.SetActive(true);
 
                 // 1 - Try set up avatar only
@@ -70,6 +72,7 @@ namespace App.core
             }
         }
 
+        // ReSharper disable Unity.PerformanceAnalysis
         public Coroutine Play(int id)
         {
             return StartCoroutine(PlayRoutine());
@@ -87,16 +90,18 @@ namespace App.core
                 SceneContainer.SetActive(false);
 
                 yield return new WaitUntil(() => limapp.ExperienceApp != null);
-
                 ApplySpecialCases(limapp);
             }
         }
 
         private void ApplySpecialCases(LimappBase limapp)
         {
-            var limappSpecialCases = new LimappSpecialCases();
+            if (ExperiencesResponse == null)
+                return;
 
+            var limappSpecialCases = new LimappSpecialCases();
             var avatar = limapp.ExperienceApp.GetComponentInChildren<VRAvatar>(true);
+
             var exp = ExperiencesResponse.Experiences.FirstOrDefault(x => x.Id == limapp.Id);
 
             if (exp != null)
@@ -116,6 +121,30 @@ namespace App.core
         public void SetExperiencesData(ExperiencesResponse experiencesResponse)
         {
             ExperiencesResponse = experiencesResponse;
+        }
+
+        public LimappBase GetCurrent()
+        {
+            if (_currentLimapp == null)
+                return null;
+
+            return _currentLimapp;
+        }
+
+        public ELimappState GetState()
+        {
+            if (_currentLimapp == null)
+                return ELimappState.Idle;
+
+            return _currentLimapp.State;
+        }
+
+        public void SetState(ELimappState state)
+        {
+            if (_currentLimapp == null)
+                return;
+
+            _currentLimapp.State = state;
         }
     }
 }
