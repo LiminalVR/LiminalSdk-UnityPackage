@@ -137,7 +137,7 @@ namespace Liminal.SDK.XR
             var hasControllerVisual = controllerVisual != null;
 
 			// This is the default angle we use for all experiences. Some experiences might feel awkward if we start using 0.
-            var laserPointerXAngle = -15;
+            var laserPointerXAngle = 0;
 			
             if (hasControllerVisual)
             {
@@ -149,7 +149,7 @@ namespace Liminal.SDK.XR
 
 				//_controller.transform.SetParent(controllerVisual.transform);
                 _controller.model.localPosition = Vector3.zero;
-                _controller.model.localEulerAngles = new Vector3(laserPointerXAngle, -180, 0);
+                _controller.model.localEulerAngles = new Vector3(laserPointerXAngle, 0, 0);
             }
             else
             {
@@ -164,7 +164,7 @@ namespace Liminal.SDK.XR
 
                 _pointer.transform.SetParent(_controller.model);
                 _pointer.transform.localPosition = Vector3.zero;
-                _pointer.transform.localEulerAngles = new Vector3(laserPointerXAngle, -180, 0);
+                _pointer.transform.localEulerAngles = new Vector3(laserPointerXAngle, 0, 0);
                 _pointer.transform.name += $"(Modified) - {_pointer.transform.localEulerAngles}";
             }
             else
