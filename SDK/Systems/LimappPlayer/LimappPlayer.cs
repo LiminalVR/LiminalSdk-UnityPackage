@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
 
 namespace App.core
 {
@@ -31,11 +32,16 @@ namespace App.core
 
         public static LimappPlayer Instance;
 
+        private bool _ended;
+
         private void Start()
         {
             Instance = this;
-        }
 
+            GraphicsSettings.defaultRenderPipeline = URPAsset;
+            GraphicsSettings.renderPipelineAsset = null;
+            QualitySettings.renderPipeline = null;
+        }
 
         public void SetupDevice()
         {
@@ -63,12 +69,8 @@ namespace App.core
 
                 // 1 - Try set up avatar only
                 // Seems like we need to wait one second before setting up avatar again?
-                yield return new WaitForSeconds(1);
+                yield return new WaitForSecondsRealtime(1);
                 VRDevice.Device.SetupAvatar(Avatar);
-
-                // 2 - Try creating a new device but searching for origin.
-
-                QualitySettings.renderPipeline = null;
             }
         }
 
@@ -80,7 +82,11 @@ namespace App.core
             IEnumerator PlayRoutine()
             {
                 var useURP = new HashSet<int>() { 40 };
-                QualitySettings.renderPipeline = useURP.Contains(id) ? URPAsset : null;
+
+                var asset = useURP.Contains(id) ? URPAsset : null;
+                GraphicsSettings.defaultRenderPipeline = URPAsset;
+                GraphicsSettings.renderPipelineAsset = asset;
+                QualitySettings.renderPipeline = asset;
 
                 var limapp = new LimappBase(id);
                 _currentLimapp = limapp; // <-- Store reference

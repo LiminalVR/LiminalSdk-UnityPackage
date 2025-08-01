@@ -344,7 +344,7 @@ namespace Liminal.SDK.XR
 
             if (UpdateControllers)
             {
-                if (elapsed > .2f && elapsed < 1)
+                //if (elapsed > .2f && elapsed < 1)
                 {
                     mRightController.SyncControllers();
                     mLeftController.SyncControllers();

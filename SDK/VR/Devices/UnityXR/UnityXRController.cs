@@ -141,7 +141,6 @@ namespace Liminal.SDK.XR
 			
             if (hasControllerVisual)
             {
-				Debug.Log("Has controller visual, so move it over!");
                 _controller.hideControllerModel = false;
 
                 //_controller.modelParent = _avatarHand.Anchor;
