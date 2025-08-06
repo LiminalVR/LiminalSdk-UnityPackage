@@ -159,7 +159,7 @@ namespace Liminal.SDK.XR
 			// Pointer might be null going into this experience, should we do another check?
             if (_pointer != null)
             {
-                Debug.Log("[Unity XR Controller] - Setting up pointers");
+                //Debug.Log("[Unity XR Controller] - Setting up pointers");
 
                 _pointer.transform.SetParent(_controller.model);
                 _pointer.transform.localPosition = Vector3.zero;
