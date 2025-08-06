@@ -10,6 +10,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using UnityEngine.XR;
 
 namespace App.core
 {
@@ -34,13 +35,9 @@ namespace App.core
 
         private bool _ended;
 
-        private void Start()
+        private void Awake()
         {
             Instance = this;
-
-            GraphicsSettings.defaultRenderPipeline = URPAsset;
-            GraphicsSettings.renderPipelineAsset = null;
-            QualitySettings.renderPipeline = null;
         }
 
         public void SetupDevice()
@@ -65,42 +62,52 @@ namespace App.core
                 yield return _currentLimapp.Unload();
                 _currentLimapp = null;
 
-                SceneContainer.SetActive(true);
+                if(SceneContainer != null)
+                    SceneContainer.SetActive(true);
 
                 // 1 - Try set up avatar only
                 // Seems like we need to wait one second before setting up avatar again?
                 yield return new WaitForSecondsRealtime(1);
                 VRDevice.Device.SetupAvatar(Avatar);
+
+                GraphicsSettings.renderPipelineAsset = null;
+                QualitySettings.renderPipeline = null;
             }
         }
 
+        public Coroutine Play(int id, ExperienceConfig? config = null)
+        {
+            return Play(new LimappBase(id), config);
+        }
+
         // ReSharper disable Unity.PerformanceAnalysis
-        public Coroutine Play(int id)
+        public Coroutine Play(LimappBase limapp, ExperienceConfig? config = null)
         {
             return StartCoroutine(PlayRoutine());
 
             IEnumerator PlayRoutine()
             {
                 var useURP = new HashSet<int>() { 40 };
+                var id = limapp.Id;
 
                 var asset = useURP.Contains(id) ? URPAsset : null;
                 GraphicsSettings.defaultRenderPipeline = URPAsset;
                 GraphicsSettings.renderPipelineAsset = asset;
                 QualitySettings.renderPipeline = asset;
 
-                var limapp = new LimappBase(id);
                 _currentLimapp = limapp; // <-- Store reference
 
                 yield return limapp.LoadScene();
 
-                SceneContainer.SetActive(false);
+                if(SceneContainer != null)
+                    SceneContainer.SetActive(false);
 
                 yield return new WaitUntil(() => limapp.ExperienceApp != null);
-                ApplySpecialCases(limapp);
+                ApplySpecialCases(limapp, config);
             }
         }
 
-        private void ApplySpecialCases(LimappBase limapp)
+        private void ApplySpecialCases(LimappBase limapp, ExperienceConfig? config)
         {
             if (ExperiencesResponse == null)
                 return;
@@ -110,11 +117,9 @@ namespace App.core
 
             var exp = ExperiencesResponse.Experiences.FirstOrDefault(x => x.Id == limapp.Id);
 
-            if (exp != null)
+            if (exp != null) 
             {
-                var config = JsonConvert.DeserializeObject<ExperienceConfig>(exp.ConfigJson);
-
-                limappSpecialCases.ApplySpecificAppSettings(limapp.Id, avatar, config);
+                limappSpecialCases.ApplySpecificAppSettings(limapp.Id, avatar, config.GetValueOrDefault());
                 limappSpecialCases.ResetHandChildrenPositions(avatar, config);
             }
         }
