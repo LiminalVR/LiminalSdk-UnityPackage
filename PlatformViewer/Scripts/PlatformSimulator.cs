@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using App.core;
+using App.Core;
 using Liminal.SDK.VR;
 using UnityEngine.Networking;
 using UnityEngine.Rendering;
@@ -54,7 +55,7 @@ namespace App.Simulator
             {
                 var instance = Instantiate(ExperienceIconButtonPrefab, Layout);
                 instance.Bind(experienceId);
-                instance.Button.onClick.AddListener(() => LimappPlayer.Play(experienceId));
+                instance.Button.onClick.AddListener(() => LimappPlayer.Play(new LimappBase(experienceId)));
             }
 
             StartCoroutine(GetExperiences());
