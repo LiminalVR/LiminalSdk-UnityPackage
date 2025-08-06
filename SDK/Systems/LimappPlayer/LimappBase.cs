@@ -92,6 +92,13 @@ namespace App.Core
             _avatarBefore = null;
         }
 
+
+        public void SetStartAndEndTime(DateTime unfinishedSessionStartTime, DateTime unfinishedSessionEndTime)
+        {
+            _startTime = unfinishedSessionStartTime;
+            EndTime = unfinishedSessionEndTime;
+        }
+
         public static string GetStreamingAssetFolderPath(int id)
         {
             return $"Limapps/{GetPlatformName()}/{id}";
@@ -417,7 +424,7 @@ namespace App.Core
             DownloadRequests.Remove(id);
         }
 
-        public static void Extract(int id)
+        public static bool Extract(int id)
         {
             var mainPath = GetLimappFolderPath();
             var name = id.ToString();
@@ -427,14 +434,19 @@ namespace App.Core
             if (Directory.Exists(extractToPath))
             {
                 // This zip has already been extracted.
-                return;
-                //Directory.Delete(extractToPath, true);
+                return true;
             }
 
             if (File.Exists(downloadToPath))
+            {
                 ZipFile.ExtractToDirectory(downloadToPath, extractToPath);
+                return true;
+            }
             else
+            {
                 Debug.Log($"Experience {id} has not been uploaded to the s3 or is not downloaded.");
+                return false;
+            }
         }
 
         public void ResetAllStaticsVariables(Type type)
