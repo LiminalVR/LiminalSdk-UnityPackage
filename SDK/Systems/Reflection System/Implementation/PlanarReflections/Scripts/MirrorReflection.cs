@@ -39,15 +39,16 @@ namespace App
 
         public static ReflectionOffsetModel IpdModel = null;
 
-        //public bool HasQuest2FOV;
+        public bool HasQuest2FOV;
 
         private void Awake()
         {
+            HasQuest2FOV = Cam.fieldOfView <= 100;
+
             if (IpdModel != null)
                 return;
 
             var deviceModel = XRDeviceUtils.GetDeviceModelType();
-            Debug.Log($"[Mirror Reflection] Awake model Name: {deviceModel}");
 
             if (deviceModel == EDeviceModelType.QuestPro)
             {
@@ -60,7 +61,7 @@ namespace App
                 if (OVRPlugin.ipd >= 0.0655f)
                     IpdModel = Ipd68OffsetModel;
             }
-            else if (deviceModel == EDeviceModelType.Quest2)
+            else // Quest 2 
             {
                 if (OVRPlugin.ipd >= 0.055f && OVRPlugin.ipd < 0.062f)
                     IpdModel = Ipd58OffsetModel;
@@ -71,8 +72,9 @@ namespace App
                 if (OVRPlugin.ipd >= 0.067f)
                     IpdModel = Ipd68OffsetModel;
             }
+
             // There is an odd reason where Quest 3 in the Platform uses different IPD values than SDK.
-            else if(deviceModel == EDeviceModelType.Quest3)
+            if (deviceModel == EDeviceModelType.Quest3)
             {
                 if (OVRPlugin.ipd < 0.060f)
                     IpdModel = Ipd58OffsetModel;
@@ -81,9 +83,6 @@ namespace App
                 else
                     IpdModel = Ipd68OffsetModel;
             }
-            else
-                // Default to IPD 63
-                IpdModel = Ipd63OffsetModel;
 
             Debug.Log($"IPD {OVRPlugin.ipd}");
         }
@@ -135,24 +134,44 @@ namespace App
                 m_Renderer.material.SetFloat(s_offsetEnabled, 1);
                 m_Renderer.material.SetFloat("_Debug", 1);
 
-                // Don't use model based on IPD, use specific values from below
-                //SetMaterial(IpdModel);
+                SetMaterial(IpdModel);
             }
 
-            if (model == EDeviceModelType.Quest3 || model == EDeviceModelType.QuestPro)
+            HasQuest2FOV = Cam.fieldOfView <= 100;
+
+            // Meta has a hack in 2023 for app with com.LiminalVR.Liminal as the package name
+            // The hack would enforce FOV of Quest 2. 
+            // So here we are checking if this hack has been removed on this device. (could be through meta switch or firmware.)
+            // And if so, use these values, they work for all IPD!
+            if (!HasQuest2FOV)
             {
-                m_Renderer.material.SetFloat("_UseL", 0);
-                m_Renderer.material.SetFloat("_OffsetRX", 1.233837f);
+                if (model == EDeviceModelType.Quest3 || model == EDeviceModelType.QuestPro)
+                {
+                    m_Renderer.material.SetFloat("_Quest", 0);
+                    m_Renderer.material.SetFloat("_OffsetEnabled", 1);
+                    m_Renderer.material.SetFloat("_Debug", 1);
+                    m_Renderer.material.SetFloat("_UseL", 0);
+                    m_Renderer.material.SetFloat("_OffsetRX", 1.233837f);
+                    m_Renderer.material.SetFloat("_OffsetRY", 1);
+                    m_Renderer.material.SetFloat("_OffsetRZ", -0.2374479f);
+                    m_Renderer.material.SetFloat("_OffsetRW", 0);
+                    m_Renderer.material.SetFloat("_OffsetX", 0.8047135f);
+                }
+            }
+
+
+            // For some highly unknown reason the SDK only works with below. I do not know why and really want to know why!
+            /*if (model == EDeviceModelType.Quest3)
+            {
+                m_Renderer.material.SetFloat("_Quest", 0);
+                m_Renderer.material.SetFloat("_OffsetEnabled", 1);
+                m_Renderer.material.SetFloat("_Debug", 1);
+                m_Renderer.material.SetFloat("_OffsetRX", 1.230723f);
                 m_Renderer.material.SetFloat("_OffsetRY", 1);
                 m_Renderer.material.SetFloat("_OffsetRZ", -0.2374479f);
                 m_Renderer.material.SetFloat("_OffsetRW", 0);
                 m_Renderer.material.SetFloat("_OffsetX", 0.8047135f);
-            }
-
-            if (model == EDeviceModelType.Quest2)
-            {
-                SetMaterial(Ipd63OffsetModel);
-            }
+            }*/
 
             void SetMaterial(ReflectionOffsetModel m)
             {

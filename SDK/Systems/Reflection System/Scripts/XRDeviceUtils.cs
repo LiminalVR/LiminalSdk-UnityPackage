@@ -29,19 +29,13 @@ namespace Liminal.Systems
             Debug.LogFormat("XRDeviceUtils: System graphics device name: {0}", SystemInfo.graphicsDeviceName);
 
             // For some reason quest 3 is unknown after we complete all the signing stages.
-
-            // Quest 2 and Quest 3 BOTH return <unknown> after signing.
-            // Upon researching SystemInfo.deviceName returns the unknown for all signed android builds, not just Quest
-
-            // Moved Quest 3 detection down with other Quest devices
-            //if (name.Contains("Quest 3"))
-            //    return EDeviceModelType.Quest3;
+            if (name.Contains("Quest 3") || name.Contains("unknown"))
+                return EDeviceModelType.Quest3;
 
             if (name.Equals("Meta Quest Pro"))
                 return EDeviceModelType.QuestPro;
 
             var model = XRDevice.model;
-
             var type = EDeviceModelType.Unknown;
             model = model.ToLower();
 
@@ -70,9 +64,7 @@ namespace Liminal.Systems
             {
                 var graphicsCardName = SystemInfo.graphicsDeviceName;
 
-                if (graphicsCardName.Contains("740"))
-                    type = EDeviceModelType.Quest3;
-                else if (graphicsCardName.Contains("650"))
+                if (graphicsCardName.Contains("650"))
                     type = EDeviceModelType.Quest2;
                 else
                     type = EDeviceModelType.Quest;
