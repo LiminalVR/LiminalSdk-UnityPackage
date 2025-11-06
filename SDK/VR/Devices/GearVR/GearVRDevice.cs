@@ -87,7 +87,8 @@ namespace Liminal.SDK.VR.Devices.GearVR
                 UpdateInputDevices();
             }
 
-            CheckUsedRenderPipeline();
+            // We are not using URP yet, so just leave the controller renderers alone for now
+            //CheckUsedRenderPipeline();
         }
         
         bool IVRDevice.HasCapabilities(VRDeviceCapability capabilities)
