@@ -87,8 +87,7 @@ namespace Liminal.SDK.VR.Devices.GearVR
                 UpdateInputDevices();
             }
 
-            // We are not using URP yet, so just leave the controller renderers alone for now
-            //CheckUsedRenderPipeline();
+            CheckUsedRenderPipeline();
         }
         
         bool IVRDevice.HasCapabilities(VRDeviceCapability capabilities)
@@ -267,10 +266,15 @@ namespace Liminal.SDK.VR.Devices.GearVR
 
                 var mesh = hand.GetControllerVisual().GetComponentInChildren<MeshRenderer>();
 
+                if (mesh == null) continue;
+
                 if (mesh.material.shader.name.Equals("Liminal/QuestController"))
                 {
                     continue;
                 }
+
+                // The material code below causes null ref's, skipping over for now.
+                continue;
 
                 var oldMat = mesh.material;
                 var newMat = new Material(Shader.Find("Liminal/QuestController"))
