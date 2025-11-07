@@ -237,6 +237,8 @@ namespace Liminal.SDK.VR.Devices.GearVR
                 
                 var mesh = hand.GetControllerVisual().GetComponentInChildren<MeshRenderer>();
 
+                if (mesh == null) continue;
+
                 if (mesh.material.shader.name.Equals("Lightweight Render Pipeline/Lit"))
                 {
                     continue;

@@ -62,6 +62,7 @@ namespace Liminal.Shared
         public const string RuntimeDurationKey = "RuntimeDuration";
         public Dictionary<string, object> Features;
         public Dictionary<string, string> Tags;
+        public Dictionary<string, object> Data;
 
         public void SetRuntimeTag(string key, string value)
         {
