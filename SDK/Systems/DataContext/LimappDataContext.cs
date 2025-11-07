@@ -35,8 +35,8 @@ namespace Liminal.Shared
                 {
                     {LimappRuntimeSettings.RuntimeDurationKey, TimeSpan.FromSeconds(600)},
                 },
-                Tags = new Dictionary<string, string>()
-
+                Tags = new Dictionary<string, string>(),
+                Data = new Dictionary<string, object>()
             };
 
             CreateData(settings);
