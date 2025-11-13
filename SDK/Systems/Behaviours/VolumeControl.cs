@@ -8,15 +8,16 @@ namespace Liminal.Tools.Common
 {
     public class VolumeControl : MonoBehaviour
     {
+        [Tooltip("If volumeSlider is empty, will use slider this script it attached to.")]
         public Slider volumeSlider;
 
         [Header("Only use 1 of the options below")]
         [Tooltip("If using AudioMixerGroup, name the exposed parameter the same as the group.")]
         public AudioMixerGroup audioGroup;
-        [Tooltip("If source is empty, will use source this script it attached to.")]
+        [Tooltip("If AudioSource is empty, will use source this script it attached to.")]
         public AudioSource audioSource;
 
-        void Awake()
+        void Start()
         {
             if (audioSource != null && audioGroup != null)
             {
@@ -36,8 +37,12 @@ namespace Liminal.Tools.Common
 
             if (volumeSlider == null)
             {
-                Debug.LogError($"{name}.VolumeControl has volume slider not set.");
-                return;
+                volumeSlider = GetComponent<Slider>();
+                if (volumeSlider == null)
+                {
+                    Debug.LogError($"{name}.VolumeControl has volume slider not set.");
+                    return;
+                }
             }
 
             if (audioSource != null)
@@ -71,11 +76,6 @@ namespace Liminal.Tools.Common
                 float scaledVol = Mathf.Clamp(Mathf.Log10(newVolume * newVolume) * 20, -80, 0);
                 audioGroup.audioMixer.SetFloat(audioGroup.name, scaledVol);
             }
-        }
-
-        void Start()
-        {
-            Debug.Log(audioGroup.name);
         }
     }
 }
