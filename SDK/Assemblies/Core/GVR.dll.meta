@@ -8,10 +8,11 @@ PluginImporter:
   defineConstraints: []
   isPreloaded: 0
   isOverridable: 0
-  isExplicitlyReferenced: 0
+  isExplicitlyReferenced: 1
+  validateReferences: 1
   platformData:
   - first:
-      '': Any
+      : Any
     second:
       enabled: 0
       settings:
@@ -29,6 +30,7 @@ PluginImporter:
     second:
       enabled: 0
       settings:
+        AndroidSharedLibraryType: Executable
         CPU: ARMv7
   - first:
       Any: 
@@ -66,7 +68,7 @@ PluginImporter:
     second:
       enabled: 0
       settings:
-        CPU: x86_64
+        CPU: AnyCPU
   - first:
       Standalone: LinuxUniversal
     second:

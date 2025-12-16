@@ -8,7 +8,7 @@ PluginImporter:
   defineConstraints: []
   isPreloaded: 0
   isOverridable: 0
-  isExplicitlyReferenced: 0
+  isExplicitlyReferenced: 1
   validateReferences: 1
   platformData:
   - first:
@@ -30,6 +30,7 @@ PluginImporter:
     second:
       enabled: 1
       settings:
+        AndroidSharedLibraryType: Executable
         CPU: ARMv7
   - first:
       Any: 
