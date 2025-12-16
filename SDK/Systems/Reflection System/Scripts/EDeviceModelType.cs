@@ -14,6 +14,8 @@
         Quest2,
         QuestPro,
         Quest3,
-        Quest3s
+        Quest3s,
+        Pico,
+        PicoNeo3
     }
 }
