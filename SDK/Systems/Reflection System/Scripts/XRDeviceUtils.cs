@@ -40,7 +40,7 @@ namespace Liminal.Systems
             if (name.Equals("Meta Quest Pro"))
                 return EDeviceModelType.QuestPro;
 
-            var model = XRDevice.model;
+            var model = SystemInfo.deviceModel;
 
             var type = EDeviceModelType.Unknown;
             model = model.ToLower();
