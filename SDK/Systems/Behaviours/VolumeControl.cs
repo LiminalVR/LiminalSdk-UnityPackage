@@ -61,7 +61,16 @@ namespace Liminal.Tools.Common
             volumeSlider.minValue = 0;
             volumeSlider.maxValue = 1;
             volumeSlider.wholeNumbers = false;
-            volumeSlider.onValueChanged.AddListener(VolumeChanged);
+        }
+
+        void OnEnable()
+        {
+            volumeSlider?.onValueChanged.AddListener(VolumeChanged);
+        }
+
+        void OnDisable()
+        {
+            volumeSlider?.onValueChanged.RemoveListener(VolumeChanged);
         }
 
         void VolumeChanged(float newVolume)
