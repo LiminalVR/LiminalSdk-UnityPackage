@@ -2,7 +2,8 @@
     "name": "LiminalSdk",
     "references": [
         "Oculus.VR",
-        "SteamVR"
+        "SteamVR",
+        "Unity.TextMeshPro"
     ],
     "optionalUnityReferences": [],
     "includePlatforms": [],
