@@ -13,6 +13,7 @@
         Unknown,
         Quest2,
         QuestPro,
-        Quest3
+        Quest3,
+        Quest3s
     }
 }

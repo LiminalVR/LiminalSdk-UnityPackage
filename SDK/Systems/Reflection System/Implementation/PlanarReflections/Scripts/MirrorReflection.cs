@@ -41,8 +41,16 @@ namespace App
 
         public bool HasQuest2FOV;
 
+        public static float ipd = 0;
+
         private void Awake()
         {
+            if (ipd <= 0)
+            {
+                ipd = OVRPlugin.ipd;
+            }
+            Debug.Log($"Mirror IPD Awake - {ipd}");
+
             HasQuest2FOV = Cam.fieldOfView <= 100;
 
             if (IpdModel != null)
@@ -52,39 +60,39 @@ namespace App
 
             if (deviceModel == EDeviceModelType.QuestPro)
             {
-                if (OVRPlugin.ipd >= 0.055f && OVRPlugin.ipd < 0.061f)
+                if (ipd >= 0.055f && ipd < 0.061f)
                     IpdModel = Ipd58OffsetModel;
 
-                if (OVRPlugin.ipd >= 0.061f && OVRPlugin.ipd < 0.0655f)
+                if (ipd >= 0.061f && ipd < 0.0655f)
                     IpdModel = Ipd63OffsetModel;
 
-                if (OVRPlugin.ipd >= 0.0655f)
+                if (ipd >= 0.0655f)
                     IpdModel = Ipd68OffsetModel;
             }
             else // Quest 2 
             {
-                if (OVRPlugin.ipd >= 0.055f && OVRPlugin.ipd < 0.062f)
+                if (ipd >= 0.055f && ipd < 0.062f)
                     IpdModel = Ipd58OffsetModel;
 
-                if (OVRPlugin.ipd >= 0.062f && OVRPlugin.ipd < 0.067f)
+                if (ipd >= 0.062f && ipd < 0.067f)
                     IpdModel = Ipd63OffsetModel;
 
-                if (OVRPlugin.ipd >= 0.067f)
+                if (ipd >= 0.067f)
                     IpdModel = Ipd68OffsetModel;
             }
 
             // There is an odd reason where Quest 3 in the Platform uses different IPD values than SDK.
             if (deviceModel == EDeviceModelType.Quest3)
             {
-                if (OVRPlugin.ipd < 0.060f)
+                if (ipd < 0.060f)
                     IpdModel = Ipd58OffsetModel;
-                else if (OVRPlugin.ipd < 0.066f)
+                else if (ipd < 0.066f)
                     IpdModel = Ipd63OffsetModel;
                 else
                     IpdModel = Ipd68OffsetModel;
             }
 
-            Debug.Log($"IPD {OVRPlugin.ipd}");
+            Debug.Log($"IPD {ipd}");
         }
 
         private void Start()

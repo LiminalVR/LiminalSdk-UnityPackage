@@ -237,6 +237,8 @@ namespace Liminal.SDK.VR.Devices.GearVR
                 
                 var mesh = hand.GetControllerVisual().GetComponentInChildren<MeshRenderer>();
 
+                if (mesh == null) continue;
+
                 if (mesh.material.shader.name.Equals("Lightweight Render Pipeline/Lit"))
                 {
                     continue;
@@ -266,10 +268,15 @@ namespace Liminal.SDK.VR.Devices.GearVR
 
                 var mesh = hand.GetControllerVisual().GetComponentInChildren<MeshRenderer>();
 
+                if (mesh == null) continue;
+
                 if (mesh.material.shader.name.Equals("Liminal/QuestController"))
                 {
                     continue;
                 }
+
+                // The material code below causes null ref's, skipping over for now.
+                continue;
 
                 var oldMat = mesh.material;
                 var newMat = new Material(Shader.Find("Liminal/QuestController"))
