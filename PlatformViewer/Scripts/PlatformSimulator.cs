@@ -34,7 +34,7 @@ namespace App.Simulator
             Instance = this;
             LimappPlayer.SetupDevice();
             BetterStreamingAssets.Initialize();
-            SetupExperiences();
+            StartCoroutine(GetExperiences());
         }
 
         private void Update()
@@ -51,14 +51,17 @@ namespace App.Simulator
 
         private void SetupExperiences()
         {
+            foreach (Transform child in Layout)
+            {
+                Destroy(child.gameObject);
+            }
+
             foreach (var experienceId in ExperienceIds)
             {
                 var instance = Instantiate(ExperienceIconButtonPrefab, Layout);
                 instance.Bind(experienceId);
                 instance.Button.onClick.AddListener(() => LimappPlayer.Play(new LimappBase(experienceId)));
             }
-
-            StartCoroutine(GetExperiences());
         }
 
         private IEnumerator GetExperiences()
@@ -76,6 +79,16 @@ namespace App.Simulator
                 {
                     ExperiencesResponse = JsonConvert.DeserializeObject<ExperiencesResponse>(webRequest.downloadHandler.text);
                     LimappPlayer.SetExperiencesData(ExperiencesResponse);
+
+                    ExperienceIds.Clear();
+                    foreach (var exp in ExperiencesResponse.Experiences)
+                    {
+                        ExperienceIds.Add(exp.Id);
+
+                        // Download it.
+                    }
+
+                    SetupExperiences();
                 }
             }
         }

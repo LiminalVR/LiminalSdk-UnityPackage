@@ -194,8 +194,8 @@ namespace Liminal.SDK.Build
             {
                 var newTextType = new TypeReference("UnityEngine.UI", "Text", asmDef.MainModule, asmDef.MainModule.TypeSystem.CoreLibrary);
                 var newInputType = asmDef.MainModule.ImportReference(typeof(UnityEngine.Input));
-
-                var overrideTextAssemblyPath = @"C:\Work\Liminal\Platform\Liminal-SDK - 2022\Liminal-SDK-Unity-Package\Library\ScriptAssemblies\LiminalSdk.dll";
+                //C:\Work\Liminal\Platform\LiminalSdk\Liminal-SDK-Unity-Package\Library
+                var overrideTextAssemblyPath = @"C:\Work\Liminal\Platform\LiminalSdk\Liminal-SDK-Unity-Package\Library\ScriptAssemblies\LiminalSdk.dll";
                 var overrideTextAssembly = AssemblyDefinition.ReadAssembly(overrideTextAssemblyPath);
 
                 // Assuming asmDef is your target assembly definition that you're modifying
