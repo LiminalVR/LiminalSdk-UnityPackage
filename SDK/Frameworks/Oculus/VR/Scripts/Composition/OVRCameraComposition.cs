@@ -260,7 +260,7 @@ public abstract class OVRCameraComposition : OVRComposition {
 			whiteMaterial.color = Color.white;
 #if UNITY_2019_1_OR_NEWER
 			// Attach to render pipeline callbacks when on URP
-			if(GraphicsSettings.renderPipelineAsset != null)
+			if(GraphicsSettings.defaultRenderPipeline != null)
 			{
 				RenderPipelineManager.beginCameraRendering += OnCameraBeginRendering;
 				RenderPipelineManager.endCameraRendering += OnCameraEndRendering;

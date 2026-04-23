@@ -13,7 +13,7 @@ public class Shuttle : MonoBehaviour
 
     private void FixedUpdate()
     {
-        var dir = Rigidbody.velocity.normalized;
+        var dir = Rigidbody.linearVelocity.normalized;
         Debug.DrawRay(Cork.position, dir * 10);
 
         var targetPosition = transform.position + dir;

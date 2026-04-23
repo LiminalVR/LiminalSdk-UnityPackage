@@ -70,7 +70,7 @@ namespace App.core
                 yield return new WaitForSecondsRealtime(1);
                 VRDevice.Device.SetupAvatar(Avatar);
 
-                GraphicsSettings.renderPipelineAsset = null;
+                GraphicsSettings.defaultRenderPipeline = null;
                 QualitySettings.renderPipeline = null;
             }
         }
@@ -92,7 +92,7 @@ namespace App.core
 
                 var asset = useURP.Contains(id) ? URPAsset : null;
                 GraphicsSettings.defaultRenderPipeline = URPAsset;
-                GraphicsSettings.renderPipelineAsset = asset;
+                GraphicsSettings.defaultRenderPipeline = asset;
                 QualitySettings.renderPipeline = asset;
 
                 _currentLimapp = limapp; // <-- Store reference

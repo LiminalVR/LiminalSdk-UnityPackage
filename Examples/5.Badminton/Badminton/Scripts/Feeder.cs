@@ -13,7 +13,7 @@ public class Feeder : MonoBehaviour
         {
             var spawnPoint = SpawnPoints[Random.Range(0, SpawnPoints.Length)];
             var shuttle = Instantiate(ShuttlePrefab, spawnPoint.position, spawnPoint.rotation);
-            shuttle.Rigidbody.velocity = spawnPoint.forward * Force;
+            shuttle.Rigidbody.linearVelocity = spawnPoint.forward * Force;
             yield return new WaitForSeconds(3);
         }
     }

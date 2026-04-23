@@ -189,7 +189,7 @@ namespace Liminal.SDK.VR.Devices.GearVR
 
         private void CheckUsedRenderPipeline()
         {
-            if (GraphicsSettings.renderPipelineAsset == null)
+            if (GraphicsSettings.defaultRenderPipeline == null)
             {
                 UpdateToStandardMaterial();
             }
