@@ -89,9 +89,8 @@ namespace Liminal.SDK.VR.Devices.Emulator
                 case VREmulatorDevice.GearVR:
                     return new GearVR.GearVRDevice();
 
-                case VREmulatorDevice.Daydream:
                 default:
-                    return new DaydreamView.DaydreamViewDevice();
+                    throw new NotImplementedException(string.Format("Emulator device type {0} is not implemented.", device.ToString()));
             }
         }
         
