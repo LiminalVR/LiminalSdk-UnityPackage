@@ -81,18 +81,7 @@ namespace Liminal.SDK.XR
 
         public void Setup()
         {
-            Headset = new UnityXRHeadset();
-            PrimaryInputDevice = mRightController = new UnityXRController(VRInputDeviceHand.Right);
-            SecondaryInputDevice = mLeftController = new UnityXRController(VRInputDeviceHand.Left);
 
-            InputDevices = new List<IVRInputDevice>
-            {
-                PrimaryInputDevice,
-                SecondaryInputDevice,
-            };
-
-            XRInputs.Add(mRightController);
-            XRInputs.Add(mLeftController);
         }
 
         #endregion
@@ -108,49 +97,7 @@ namespace Liminal.SDK.XR
 
 		public void SetupAvatar(IVRAvatar avatar)
         {
-            if (!Data.ContainsKey(avatar))
-            {
-                var setupData = new SetupData();
-                Data[avatar] = setupData;
-            }
 
-            // It may be a smart idea to duplicate existing rig for comparison.
-            /*var copy = GameObject.Instantiate(avatar.Transform.gameObject, avatar.Transform.parent);
-            copy.transform.name = "Avatar Copy";
-            copy.gameObject.SetActive(false);*/
-
-            Debug.Log("[UnityXRDevice] Setting up avatar");
-            Assert.IsNotNull(avatar);
-
-			// Clean up existing pointers.
-			if(VRDevice.Device?.PrimaryInputDevice?.Pointer != null)
-                VRPointerInputModule.RemovePointer(VRDevice.Device.PrimaryInputDevice.Pointer);
-
-            if (VRDevice.Device?.SecondaryInputDevice?.Pointer != null)
-				VRPointerInputModule.RemovePointer(VRDevice.Device.SecondaryInputDevice.Pointer);
-
-			var unityAvatar = avatar.Transform.gameObject.GetComponent<UnityXRAvatar>();
-
-			if(unityAvatar == null)
-                unityAvatar = avatar.Transform.gameObject.AddComponent<UnityXRAvatar>();
-
-            unityAvatar.gameObject.SetActive(true);
-
-            Debug.Log("[UnityXRDevice] Setting up managers");
-			SetupManager(avatar);
-
-            Debug.Log("[UnityXRDevice] Creating XR Rig");
-			var rig = CreateXRRig(avatar);
-
-            Debug.Log("[UnityXRDevice] Setup Camera Rig");
-			SetupCameraRig(avatar, rig);
-
-            Debug.Log("[UnityXRDevice] Initialize Avatar");
-			// Does this need to happen a second time? Probably not!
-			unityAvatar.Initialize(avatar, this);
-
-            Debug.Log("[UnityXRDevice] Setup Controllers");
-			SetupControllers(avatar, rig);
 		}
 
         private XROrigin CreateXRRig(IVRAvatar avatar)
@@ -321,35 +268,7 @@ namespace Liminal.SDK.XR
         /// </summary>
         public void Update()
         {
-            var avatar = VRAvatar.Active;
-            var setupData = GetData(avatar);
 
-            if (setupData == null || setupData._tracker == null)
-                return;
-            
-			// The camera floor offset object is necessary to match the head position to make sure the controllers are in place.
-			// Do note a problem that will exist is if you bend up and down, that would kind of add an offset?
-
-			// I think was for PICO
-            var xrRig = CreateXRRig(avatar);
-            xrRig.CameraFloorOffsetObject.transform.position = setupData._offset.transform.position;
-
-            var elapsed = Time.time - _startTime;
-
-            if (UpdateHeight)
-            {
-                if (elapsed < 3)
-                    RecenterHeight(setupData);
-            }
-
-            if (UpdateControllers)
-            {
-                //if (elapsed > .2f && elapsed < 1)
-                {
-                    mRightController.SyncControllers();
-                    mLeftController.SyncControllers();
-                }
-            }
         }
 
         /// <summary>
