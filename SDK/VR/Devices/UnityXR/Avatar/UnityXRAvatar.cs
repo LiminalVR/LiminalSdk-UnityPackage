@@ -36,8 +36,8 @@ namespace Liminal.SDK.XR
                 return;
             }
 
-            foreach (var input in Device.XRInputs)
-                input.Update();
+            /*foreach (var input in Device.XRInputs)
+                input.Update();*/
         }
 
         private void OnDisable()

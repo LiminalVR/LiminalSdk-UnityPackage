@@ -49,7 +49,7 @@ namespace App.core
 
         private void Update()
         {
-            UnityXRDevice.UpdateControllers = true;
+            //UnityXRDevice.UpdateControllers = true;
         }
 
         [ContextMenu("End")]
