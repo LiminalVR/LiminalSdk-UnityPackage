@@ -1,6 +1,7 @@
 using Liminal.SDK.Core;
 using Liminal.SDK.VR.Avatars;
 using Liminal.SDK.XR;
+using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -17,6 +18,7 @@ namespace Liminal.SDK.V2
         public GameObject ExperienceApp;
         public VRAvatar VRAvatar;
 
+        public XROrigin XROrigin;
         public GameObject XRRig;
 
         public bool RunOnStart = false;
@@ -59,9 +61,12 @@ namespace Liminal.SDK.V2
 
             // Disabling as this component moves our EventSystem and causes Interaction issues.
             VRAvatar.enabled = false;
+
+            XROrigin.Camera = AvatarHead.CenterEyeCamera;
+            XROrigin.CameraFloorOffsetObject = AvatarHead.transform.gameObject;
         }
 
-        private void Start()
+        private void Awake()
         {
             if(RunOnStart)
                 Setup();

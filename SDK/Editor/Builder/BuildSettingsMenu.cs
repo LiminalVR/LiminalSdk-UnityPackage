@@ -6,7 +6,8 @@
     Issues,
     Preview,
     Settings,
-    Migration
+    Migration,
+    SceneMigration
 }
 
 

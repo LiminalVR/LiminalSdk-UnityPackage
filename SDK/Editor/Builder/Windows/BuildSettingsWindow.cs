@@ -99,6 +99,7 @@ namespace Liminal.SDK.Build
             BuildSettingLookup.AddSafe(BuildSettingMenus.Preview, new AppPreviewWindow());
             BuildSettingLookup.AddSafe(BuildSettingMenus.Settings, new SettingsWindow());
             BuildSettingLookup.AddSafe(BuildSettingMenus.Migration, new LimapPatchWindow());
+            BuildSettingLookup.AddSafe(BuildSettingMenus.SceneMigration, new SceneMigrationWindow());
         }
 
         private void SetupFolderPaths()
