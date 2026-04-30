@@ -1,5 +1,55 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1249494206065794970
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7433395034491958568}
+  - component: {fileID: 4879603801225255726}
+  m_Layer: 0
+  m_Name: PhysicsRaycaster
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7433395034491958568
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1249494206065794970}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3815457283674284413}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4879603801225255726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1249494206065794970}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6df61a9a13528fd4f9365c233cb23bfb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.UI.TrackedDevicePhysicsRaycaster
+  m_RaycastTriggerInteraction: 2
+  m_EventMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_MaxRayIntersections: 10
+  m_EventCamera: {fileID: 0}
 --- !u!1 &4076173241820734393
 GameObject:
   m_ObjectHideFlags: 0
@@ -57,6 +107,7 @@ MonoBehaviour:
   RigRightHand: {fileID: 2286466869670375487}
   RigLeftHand: {fileID: 2286466868152053982}
   CameraOffset: {fileID: 2286466869626047645}
+  OriginalTrackedPoseDriver: {fileID: 5315375088827681629}
 --- !u!114 &8812467397329442938
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -152,7 +203,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 3177017826535018019, guid: 1fa0a5031d906cd49a3270ec93cfb474,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7433395034491958568}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 1fa0a5031d906cd49a3270ec93cfb474, type: 3}
 --- !u!114 &1144126600039483490 stripped
@@ -191,6 +246,18 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 1793614413062811486}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &5315375088827681629 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5845729170741126147, guid: 1fa0a5031d906cd49a3270ec93cfb474,
+    type: 3}
+  m_PrefabInstance: {fileID: 1793614413062811486}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2fadf230d1919748a9aa21d40f74619, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &8446742920655791947 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7916458571814586389, guid: 1fa0a5031d906cd49a3270ec93cfb474,

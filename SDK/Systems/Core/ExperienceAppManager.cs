@@ -3,6 +3,7 @@ using Liminal.SDK.VR.Avatars;
 using Liminal.SDK.XR;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using UnityEngine.InputSystem.XR;
 using UnityEngine.SceneManagement;
 
 namespace Liminal.SDK.V2
@@ -32,6 +33,8 @@ namespace Liminal.SDK.V2
         public Transform RigLeftHand;
         public Transform CameraOffset;
 
+        public TrackedPoseDriver OriginalTrackedPoseDriver;
+
         [ContextMenu("1 - Find References")]
         public void FindReferences()
         {
@@ -51,6 +54,8 @@ namespace Liminal.SDK.V2
             AvatarRightHand = VRAvatar.PrimaryHand as VRAvatarHand;
 
             AvatarHead = VRAvatar.Head as VRAvatarHead;
+
+            SceneSetup();
         }
 
         [ContextMenu("2 - Scene Setup")]
@@ -64,6 +69,33 @@ namespace Liminal.SDK.V2
 
             XROrigin.Camera = AvatarHead.CenterEyeCamera;
             XROrigin.CameraFloorOffsetObject = AvatarHead.transform.gameObject;
+
+            CopyTrackedPoseDriverToCenterEye();
+
+            VRAvatar.Auxiliaries.gameObject.SetActive(false);
+        }
+
+        private void CopyTrackedPoseDriverToCenterEye()
+        {
+            if (OriginalTrackedPoseDriver == null)
+            {
+                Debug.LogWarning("[ExperienceAppManager] OriginalTrackedPoseDriver not assigned — skipping TrackedPoseDriver copy.", this);
+                return;
+            }
+
+            if (AvatarHead == null || AvatarHead.CenterEyeCamera == null)
+            {
+                Debug.LogWarning("[ExperienceAppManager] AvatarHead.CenterEyeCamera missing — skipping TrackedPoseDriver copy.", this);
+                return;
+            }
+
+            var centerEye = AvatarHead.CenterEyeCamera.gameObject;
+            var driver = centerEye.GetComponent<TrackedPoseDriver>();
+            if (driver == null)
+                driver = centerEye.AddComponent<TrackedPoseDriver>();
+
+            // JsonUtility round-trip copies all [SerializeField] state — same trick the editor uses internally.
+            JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(OriginalTrackedPoseDriver), driver);
         }
 
         private void Awake()
@@ -91,6 +123,7 @@ namespace Liminal.SDK.V2
 
             // Offset takes head position that was how we offset the head. 
             CameraOffset.transform.position = AvatarHead.transform.position;
+            CameraOffset.transform.rotation = AvatarHead.transform.rotation;
         }
     }
 }

@@ -8,7 +8,8 @@ namespace Liminal.SDK.Build
 {
     public class SceneMigrationWindow : BaseWindowDrawer
     {
-        private const string ExperienceManagerPrefabPath = "Assets/Liminal-SDK/SDK/Prefabs/Resources/ExperienceManager.prefab";
+        // Loaded via Resources so it resolves whether the SDK is imported under Assets/ or Packages/com.liminal.sdk/.
+        private const string ExperienceManagerResourceName = "ExperienceManager";
         private const string ExperienceManagerObjectName = "ExperienceManager";
         private const string ExperienceAppObjectName = "[ExperienceApp]";
 
@@ -27,6 +28,17 @@ namespace Liminal.SDK.Build
                 {
                     SpawnAndFindReferences();
                 }
+
+                GUILayout.Space(8);
+
+                GUILayout.Label(
+                    "Enables the Oculus XR provider and 'Initialize XR on Startup' for both Android and Windows (Standalone).",
+                    EditorStyles.wordWrappedLabel);
+
+                if (GUILayout.Button("Configure Oculus XR (Android + Windows)"))
+                {
+                    XRSettingsConfigurator.ConfigureOculusForAndroidAndStandalone();
+                }
             }
             GUILayout.EndVertical();
         }
@@ -40,10 +52,10 @@ namespace Liminal.SDK.Build
             }
             else
             {
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ExperienceManagerPrefabPath);
+                var prefab = Resources.Load<GameObject>(ExperienceManagerResourceName);
                 if (prefab == null)
                 {
-                    Debug.LogError($"[SceneMigration] Could not find prefab at {ExperienceManagerPrefabPath}");
+                    Debug.LogError($"[SceneMigration] Could not find {ExperienceManagerResourceName} prefab in any Resources folder.");
                     return;
                 }
 

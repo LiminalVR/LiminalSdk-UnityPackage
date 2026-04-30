@@ -5,7 +5,9 @@
         "Platform",
         "LiminalSdk",
         "Oculus.VR.Editor",
-        "Unity.EditorCoroutines.Editor"
+        "Unity.EditorCoroutines.Editor",
+        "Unity.XR.Management",
+        "Unity.XR.Management.Editor"
     ],
     "includePlatforms": [
         "Editor"

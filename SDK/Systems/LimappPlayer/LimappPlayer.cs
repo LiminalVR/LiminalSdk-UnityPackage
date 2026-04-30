@@ -1,5 +1,4 @@
 using App.Core;
-using App.Shared;
 using Liminal.SDK.VR;
 using Liminal.SDK.VR.Avatars;
 using Liminal.SDK.XR;
@@ -11,6 +10,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
+using App.Shared;
 
 namespace App.core
 {

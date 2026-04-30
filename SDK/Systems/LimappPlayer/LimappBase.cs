@@ -1,4 +1,3 @@
-using App.Shared;
 using Liminal.Core.Fader;
 using Liminal.SDK.Core;
 using Liminal.SDK.VR.Avatars;
@@ -18,6 +17,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.SpatialTracking;
 using Liminal.Platform.Experimental.App.Experiences;
 using Liminal.SDK.VR.Utils;
+using App.Shared;
 
 namespace App.Core
 {

@@ -1,5 +1,6 @@
 ﻿using Liminal.SDK.VR.Avatars;
 using Liminal.SDK.VR.Input;
+using Liminal.SDK.XR;
 using System;
 using System.Collections.Generic;
 
@@ -89,9 +90,8 @@ namespace Liminal.SDK.VR.Devices.Emulator
                 case VREmulatorDevice.GearVR:
                     return new GearVR.GearVRDevice();
 
-                case VREmulatorDevice.Daydream:
                 default:
-                    return new DaydreamView.DaydreamViewDevice();
+                    return new UnityXRDevice();
             }
         }
         
