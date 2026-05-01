@@ -9,6 +9,7 @@ namespace Liminal.SDK.V2
         public static void Initialize(IVRDevice device)
         {
             Device = device;
+            VRDevice.Initialize(device);
         }
     }
 }

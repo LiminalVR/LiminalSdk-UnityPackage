@@ -64,9 +64,6 @@ namespace Liminal.SDK.V2
             // We hide the old exp app on purpose.
             ExperienceApp.SetActive(false);
 
-            // Disabling as this component moves our EventSystem and causes Interaction issues.
-            VRAvatar.enabled = false;
-
             XROrigin.Camera = AvatarHead.CenterEyeCamera;
             XROrigin.CameraFloorOffsetObject = AvatarHead.transform.gameObject;
 

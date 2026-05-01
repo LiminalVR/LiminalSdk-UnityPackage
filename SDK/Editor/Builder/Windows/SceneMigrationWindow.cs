@@ -18,13 +18,12 @@ namespace Liminal.SDK.Build
             GUILayout.BeginVertical("Box");
             {
                 EditorGUIHelper.DrawTitle("Scene Migration");
+
                 GUILayout.Label(
-                    "Spawns the ExperienceManager prefab into the active scene and wires up references to the existing ExperienceApp / VRAvatar.",
+                    "1. Setup Scene — spawns the ExperienceManager prefab into the active scene and wires up references to the existing ExperienceApp / VRAvatar.",
                     EditorStyles.wordWrappedLabel);
 
-                GUILayout.Space(8);
-
-                if (GUILayout.Button("Spawn ExperienceManager & Find References"))
+                if (GUILayout.Button("1. Setup Scene"))
                 {
                     SpawnAndFindReferences();
                 }
@@ -32,12 +31,23 @@ namespace Liminal.SDK.Build
                 GUILayout.Space(8);
 
                 GUILayout.Label(
-                    "Enables the Oculus XR provider and 'Initialize XR on Startup' for both Android and Windows (Standalone).",
+                    "2. Configure XR — enables the Oculus XR provider and 'Initialize XR on Startup' for both Android and Windows (Standalone).",
                     EditorStyles.wordWrappedLabel);
 
-                if (GUILayout.Button("Configure Oculus XR (Android + Windows)"))
+                if (GUILayout.Button("2. Configure XR"))
                 {
                     XRSettingsConfigurator.ConfigureOculusForAndroidAndStandalone();
+                }
+
+                GUILayout.Space(8);
+
+                GUILayout.Label(
+                    "3. Configure Android — forces Linear color space, switches to Android build target, sets Min API Level to 30 (Android 11), and deletes the legacy Assets/Plugins/Android folder.",
+                    EditorStyles.wordWrappedLabel);
+
+                if (GUILayout.Button("3. Configure Android"))
+                {
+                    PlayerSettingsConfigurator.ConfigureAndroid();
                 }
             }
             GUILayout.EndVertical();
