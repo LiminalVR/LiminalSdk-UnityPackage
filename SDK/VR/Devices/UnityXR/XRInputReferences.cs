@@ -5,6 +5,9 @@ using UnityEngine;
 
 namespace Liminal.SDK.XR
 {
+    /// <summary>
+    /// Mapping from Liminal SDK -> New Unity XR Input System. This is used by the XRInputDevice to get the correct input action for each button/axis.
+    /// </summary>
     public class XRInputReferences : MonoBehaviour
     {
         public XROrigin XROrigin;

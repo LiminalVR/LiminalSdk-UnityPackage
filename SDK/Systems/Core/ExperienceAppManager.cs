@@ -5,6 +5,8 @@ using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.SceneManagement;
+using UnityEngine.XR.Interaction.Toolkit.Inputs;
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Liminal.SDK.V2
 {
@@ -35,17 +37,21 @@ namespace Liminal.SDK.V2
 
         public TrackedPoseDriver OriginalTrackedPoseDriver;
 
+        public XRRayInteractor RightControllerRayInteractor;
+        public XRRayInteractor LeftControllerRayInteractor;
+
         [ContextMenu("1 - Find References")]
         public void FindReferences()
         {
+            // Picks up MyExperienceApp subclasses too — fall back to name lookup if no component is present.
             var oldExperienceApp = FindAnyObjectByType<ExperienceApp>(FindObjectsInactive.Include);
-            if (oldExperienceApp != null)
+            ExperienceApp = oldExperienceApp != null
+                ? oldExperienceApp.gameObject
+                : GameObjectUtils.FindInactiveByName("[ExperienceApp]");
+
+            if (ExperienceApp == null)
             {
-                // May want to remove component or replace it.
-            }
-            else
-            {
-                ExperienceApp = GameObjectUtils.FindInactiveByName("[ExperienceApp]");
+                Debug.LogWarning("[ExperienceAppManager] Could not find an ExperienceApp (component or [ExperienceApp] GameObject).", this);
             }
 
             VRAvatar = FindAnyObjectByType<VRAvatar>(FindObjectsInactive.Include);
@@ -70,6 +76,13 @@ namespace Liminal.SDK.V2
             CopyTrackedPoseDriverToCenterEye();
 
             VRAvatar.Auxiliaries.gameObject.SetActive(false);
+        }
+
+        [ContextMenu("Disable Rays")]
+        public void TestDisableRays()
+        {
+            RightControllerRayInteractor.gameObject.SetActive(false);
+            LeftControllerRayInteractor.gameObject.SetActive(false);
         }
 
         private void CopyTrackedPoseDriverToCenterEye()
@@ -97,6 +110,9 @@ namespace Liminal.SDK.V2
 
         private void Awake()
         {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+
             if(RunOnStart)
                 Setup();
         }

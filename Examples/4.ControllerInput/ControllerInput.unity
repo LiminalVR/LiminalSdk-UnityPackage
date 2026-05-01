@@ -487,6 +487,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 133666694}
   m_CullTransparentMesh: 0
+--- !u!114 &399650523 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1537252471783396541, guid: b6f7afcc79a1e434693e90b06e48e69a,
+    type: 3}
+  m_PrefabInstance: {fileID: 1906563739}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6803edce0201f574f923fd9d10e5b30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &531037337
 GameObject:
   m_ObjectHideFlags: 0
@@ -2091,83 +2103,33 @@ PrefabInstance:
       propertyPath: AvatarRightHand
       value: 
       objectReference: {fileID: 1260162969764166939}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
+    - target: {fileID: 5032096053886163739, guid: b6f7afcc79a1e434693e90b06e48e69a,
         type: 3}
-      propertyPath: LeftControllerReferences.Two
+      propertyPath: LeftControllerRayInteractor
       value: 
-      objectReference: {fileID: 2573848021434419283, guid: c348712bda248c246b8c49b3db54643f,
+      objectReference: {fileID: 1906563740}
+    - target: {fileID: 5032096053886163739, guid: b6f7afcc79a1e434693e90b06e48e69a,
         type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: LeftControllerReferences.Back
+      propertyPath: RightControllerRayInteractor
       value: 
-      objectReference: {fileID: 80416262313218196, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: LeftControllerReferences.Four
-      value: 
-      objectReference: {fileID: 460963448614501022, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: RightControllerReferences.Two
-      value: 
-      objectReference: {fileID: 7617449424981564831, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: LeftControllerReferences.Three
-      value: 
-      objectReference: {fileID: -7168492882246764648, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: LeftControllerReferences.Touch
-      value: 
-      objectReference: {fileID: -3425780095187398254, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: RightControllerReferences.Back
-      value: 
-      objectReference: {fileID: 3924123695614147740, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: RightControllerReferences.Four
-      value: 
-      objectReference: {fileID: -3773799150389810357, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: RightControllerReferences.Three
-      value: 
-      objectReference: {fileID: 1903437103467583751, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: RightControllerReferences.Touch
-      value: 
-      objectReference: {fileID: -254056742709488667, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: LeftControllerReferences.Joystick
-      value: 
-      objectReference: {fileID: -60998027439631388, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
-    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
-        type: 3}
-      propertyPath: RightControllerReferences.Joystick
-      value: 
-      objectReference: {fileID: -8666952849799569744, guid: c348712bda248c246b8c49b3db54643f,
-        type: 3}
+      objectReference: {fileID: 399650523}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b6f7afcc79a1e434693e90b06e48e69a, type: 3}
+--- !u!114 &1906563740 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4094678604322522107, guid: b6f7afcc79a1e434693e90b06e48e69a,
+    type: 3}
+  m_PrefabInstance: {fileID: 1906563739}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6803edce0201f574f923fd9d10e5b30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1938183140
 GameObject:
   m_ObjectHideFlags: 0
