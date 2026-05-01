@@ -2093,9 +2093,39 @@ PrefabInstance:
       objectReference: {fileID: 1260162969764166939}
     - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
         type: 3}
+      propertyPath: LeftControllerReferences.Two
+      value: 
+      objectReference: {fileID: 2573848021434419283, guid: c348712bda248c246b8c49b3db54643f,
+        type: 3}
+    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
+        type: 3}
+      propertyPath: LeftControllerReferences.Back
+      value: 
+      objectReference: {fileID: 80416262313218196, guid: c348712bda248c246b8c49b3db54643f,
+        type: 3}
+    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
+        type: 3}
+      propertyPath: LeftControllerReferences.Four
+      value: 
+      objectReference: {fileID: 460963448614501022, guid: c348712bda248c246b8c49b3db54643f,
+        type: 3}
+    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
+        type: 3}
       propertyPath: RightControllerReferences.Two
       value: 
       objectReference: {fileID: 7617449424981564831, guid: c348712bda248c246b8c49b3db54643f,
+        type: 3}
+    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
+        type: 3}
+      propertyPath: LeftControllerReferences.Three
+      value: 
+      objectReference: {fileID: -7168492882246764648, guid: c348712bda248c246b8c49b3db54643f,
+        type: 3}
+    - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
+        type: 3}
+      propertyPath: LeftControllerReferences.Touch
+      value: 
+      objectReference: {fileID: -3425780095187398254, guid: c348712bda248c246b8c49b3db54643f,
         type: 3}
     - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
         type: 3}
@@ -2113,7 +2143,7 @@ PrefabInstance:
         type: 3}
       propertyPath: RightControllerReferences.Three
       value: 
-      objectReference: {fileID: -2484299255793875396, guid: c348712bda248c246b8c49b3db54643f,
+      objectReference: {fileID: 1903437103467583751, guid: c348712bda248c246b8c49b3db54643f,
         type: 3}
     - target: {fileID: 8812467397329442938, guid: b6f7afcc79a1e434693e90b06e48e69a,
         type: 3}

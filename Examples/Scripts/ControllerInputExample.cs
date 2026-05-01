@@ -27,7 +27,7 @@ public class ControllerInputExample : MonoBehaviour
 
         AppendDeviceInput(inputStringBuilder, device.PrimaryInputDevice, "Primary");
         inputStringBuilder.AppendLine();
-       // AppendDeviceInput(inputStringBuilder, device.SecondaryInputDevice, "Secondary");
+        AppendDeviceInput(inputStringBuilder, device.SecondaryInputDevice, "Secondary");
 
         InputText.text = inputStringBuilder.ToString();
 

@@ -113,9 +113,14 @@ namespace Liminal.SDK.VR.Avatars.Extensions
             ApplyTimedPointerProperties();
         }
 
+        private void Onable()
+        {
+            enabled = false;            
+        }
+
         private void Update()
         {
-            DetectAndUpdateActiveState();
+            //DetectAndUpdateActiveState();
         }
 
         #endregion

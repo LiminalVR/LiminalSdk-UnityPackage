@@ -453,6 +453,51 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": true
+                },
+                {
+                    "name": "Two",
+                    "type": "Button",
+                    "id": "cccd8f3a-9f32-4fe8-81b8-cf7c9052477c",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Three",
+                    "type": "Button",
+                    "id": "7b5ed346-4c98-43f5-b468-5d27e4a4ef5a",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Four",
+                    "type": "Button",
+                    "id": "aa385591-89ee-45ff-b567-70df3e1eda7c",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Back",
+                    "type": "Button",
+                    "id": "c99de1ee-9d1c-4bd7-9f5f-7b59116761af",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Touch",
+                    "type": "Button",
+                    "id": "707525ff-6823-4103-81db-360ea24c16f3",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -860,6 +905,61 @@
                     "processors": "",
                     "groups": "",
                     "action": "Thumbstick",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "d386a0f9-737f-483e-a68b-3bfca9e77188",
+                    "path": "<XRController>{LeftHand}/{PrimaryButton}",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Two",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "ca3eed99-d75b-464e-9cc3-b6d3d2eedd8f",
+                    "path": "<XRController>{LeftHand}/{GripButton}",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Three",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "1a1af210-659e-4e36-a81b-4170446ddb9b",
+                    "path": "<XRController>{LeftHand}/{MenuButton}",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Four",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "7cba245b-92d6-41a1-8ee3-d89655fe3075",
+                    "path": "<XRController>{LeftHand}/{SecondaryButton}",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Back",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "cda16a60-8596-4d25-9869-bd32510c6d07",
+                    "path": "<XRController>{LeftHand}/{Primary2DAxisClick}",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Touch",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
@@ -1557,15 +1657,6 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Three",
-                    "type": "Button",
-                    "id": "27cf1f53-59ea-4eeb-8d2a-82b88fdb034a",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
                     "name": "Four",
                     "type": "Button",
                     "id": "1c16c1e3-6959-4ce9-93b4-10b7c5b1d0eb",
@@ -1587,6 +1678,15 @@
                     "name": "Touch",
                     "type": "Button",
                     "id": "ea54ab82-a6cb-4b68-a5c7-b8cf2dca3fc6",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Three",
+                    "type": "Button",
+                    "id": "c05d0e3d-a380-4d20-9e35-7a09c62c6de5",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -2014,17 +2114,6 @@
                 },
                 {
                     "name": "",
-                    "id": "5856141a-bd38-494b-98eb-9881edcc2282",
-                    "path": "<XRController>{RightHand}/{GripButton}",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Three",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
                     "id": "d00a54b0-6a1f-491f-9e56-353a07e4f7b8",
                     "path": "<XRController>{RightHand}/{MenuButton}",
                     "interactions": "",
@@ -2053,6 +2142,17 @@
                     "processors": "",
                     "groups": "",
                     "action": "Touch",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "6465ba31-e3d1-44f1-90d7-dfe1e9edeb8e",
+                    "path": "<XRController>{RightHand}/{GripButton}",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Three",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
