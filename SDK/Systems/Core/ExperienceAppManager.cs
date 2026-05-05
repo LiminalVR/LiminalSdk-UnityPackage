@@ -10,6 +10,7 @@ using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace Liminal.SDK.V2
 {
+
     /// <summary>
     /// Replaces Experience App and load up VR.
     /// Properly map to VRAvatar / Hands Etc
@@ -40,6 +41,8 @@ namespace Liminal.SDK.V2
         public XRRayInteractor RightControllerRayInteractor;
         public XRRayInteractor LeftControllerRayInteractor;
 
+        public LiminalControllerManager ControllerManager;
+
         [ContextMenu("1 - Find References")]
         public void FindReferences()
         {
@@ -61,6 +64,12 @@ namespace Liminal.SDK.V2
 
             AvatarHead = VRAvatar.Head as VRAvatarHead;
 
+            if(ControllerManager.AvatarCustomLeftHandMesh == null)
+                ControllerManager.AvatarCustomLeftHandMesh = AvatarLeftHand.Anchor.gameObject;
+                
+            if(ControllerManager.AvatarCustomRightHandMesh == null)
+                ControllerManager.AvatarCustomRightHandMesh = AvatarRightHand.Anchor.gameObject;
+
             SceneSetup();
         }
 
@@ -72,6 +81,7 @@ namespace Liminal.SDK.V2
 
             XROrigin.Camera = AvatarHead.CenterEyeCamera;
             XROrigin.CameraFloorOffsetObject = AvatarHead.transform.gameObject;
+            XROrigin.CameraYOffset = AvatarHead.transform.position.y;
 
             CopyTrackedPoseDriverToCenterEye();
 
@@ -120,6 +130,9 @@ namespace Liminal.SDK.V2
         [ContextMenu("Setup Test")]
         public void Setup()
         {
+            if (ControllerManager != null)
+                ControllerManager.ApplyDefaults();
+
             SceneSetup();
             DeviceManager.Initialize(new UnityXRDevice());
             ExperienceApp.gameObject.SetActive(true);
@@ -131,7 +144,7 @@ namespace Liminal.SDK.V2
             AvatarRightHand.transform.position = RigRightHand.transform.position;
             AvatarRightHand.transform.rotation = RigRightHand.transform.rotation;
 
-            AvatarLeftHand.transform.position = RigRightHand.transform.position;
+            AvatarLeftHand.transform.position = RigLeftHand.transform.position;
             AvatarLeftHand.transform.rotation = RigLeftHand.transform.rotation;
 
             // Offset takes head position that was how we offset the head. 

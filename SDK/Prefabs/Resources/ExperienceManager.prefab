@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 2431826316228036930}
   - component: {fileID: 5032096053886163739}
   - component: {fileID: 8812467397329442938}
+  - component: {fileID: 9040171604318020709}
   m_Layer: 0
   m_Name: ExperienceManager
   m_TagString: Untagged
@@ -58,6 +59,9 @@ MonoBehaviour:
   RigLeftHand: {fileID: 2286466868152053982}
   CameraOffset: {fileID: 2286466869626047645}
   OriginalTrackedPoseDriver: {fileID: 5315375088827681629}
+  RightControllerRayInteractor: {fileID: 1537252471783396541}
+  LeftControllerRayInteractor: {fileID: 4094678604322522107}
+  ControllerManager: {fileID: 9040171604318020709}
 --- !u!114 &8812467397329442938
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -92,6 +96,25 @@ MonoBehaviour:
     Four: {fileID: -3773799150389810357, guid: c348712bda248c246b8c49b3db54643f, type: 3}
     Touch: {fileID: -254056742709488667, guid: c348712bda248c246b8c49b3db54643f, type: 3}
     Back: {fileID: 3924123695614147740, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+--- !u!114 &9040171604318020709
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4076173241820734393}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d53aa16172f7404ab13c2d9f5340e30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LiminalSdk::Liminal.SDK.V2.LiminalControllerManager
+  ExperienceAppManager: {fileID: 5032096053886163739}
+  DefaultLeftHandMesh: {fileID: 6983852203582424857}
+  DefaultRightHandMesh: {fileID: 5650054497442121298}
+  AvatarCustomLeftHandMesh: {fileID: 0}
+  AvatarCustomRightHandMesh: {fileID: 0}
+  LeftDefault: -1
+  RightDefault: -1
 --- !u!1001 &1793614413062811486
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -172,6 +195,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e0cb9aa70a22847b5925ee5f067c10a9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &1537252471783396541 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 986666774606691299, guid: 1fa0a5031d906cd49a3270ec93cfb474,
+    type: 3}
+  m_PrefabInstance: {fileID: 1793614413062811486}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6803edce0201f574f923fd9d10e5b30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &2286466868152053982 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 531173306502881152, guid: 1fa0a5031d906cd49a3270ec93cfb474,
@@ -196,6 +231,18 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 1793614413062811486}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &4094678604322522107 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2321335889376603301, guid: 1fa0a5031d906cd49a3270ec93cfb474,
+    type: 3}
+  m_PrefabInstance: {fileID: 1793614413062811486}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6803edce0201f574f923fd9d10e5b30a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &5315375088827681629 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 5845729170741126147, guid: 1fa0a5031d906cd49a3270ec93cfb474,
@@ -208,6 +255,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c2fadf230d1919748a9aa21d40f74619, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &5650054497442121298 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6236698710643042572, guid: 1fa0a5031d906cd49a3270ec93cfb474,
+    type: 3}
+  m_PrefabInstance: {fileID: 1793614413062811486}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &6983852203582424857 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8651294341576075335, guid: 1fa0a5031d906cd49a3270ec93cfb474,
+    type: 3}
+  m_PrefabInstance: {fileID: 1793614413062811486}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &8446742920655791947 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7916458571814586389, guid: 1fa0a5031d906cd49a3270ec93cfb474,
