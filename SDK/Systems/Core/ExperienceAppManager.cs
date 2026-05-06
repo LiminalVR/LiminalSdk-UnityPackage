@@ -81,7 +81,7 @@ namespace Liminal.SDK.V2
 
             XROrigin.Camera = AvatarHead.CenterEyeCamera;
             XROrigin.CameraFloorOffsetObject = AvatarHead.transform.gameObject;
-            XROrigin.CameraYOffset = AvatarHead.transform.position.y;
+            XROrigin.CameraYOffset = AvatarHead.transform.localPosition.y;
 
             CopyTrackedPoseDriverToCenterEye();
 
