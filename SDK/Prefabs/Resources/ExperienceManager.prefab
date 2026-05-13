@@ -62,6 +62,7 @@ MonoBehaviour:
   RightControllerRayInteractor: {fileID: 1537252471783396541}
   LeftControllerRayInteractor: {fileID: 4094678604322522107}
   ControllerManager: {fileID: 9040171604318020709}
+  HideExperienceApp: 1
 --- !u!114 &8812467397329442938
 MonoBehaviour:
   m_ObjectHideFlags: 0

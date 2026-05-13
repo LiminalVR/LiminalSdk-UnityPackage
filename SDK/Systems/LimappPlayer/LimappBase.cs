@@ -104,6 +104,19 @@ namespace App.Core
             return $"Limapps/{GetPlatformName()}/{id}";
         }
 
+        // Prefer the .bundle name (extensionless files can be dropped from Android builds), fall back
+        // to the legacy "appBundle" name so already-shipped APKs and downloaded experiences keep working.
+        private static string ResolveBundlePath(string appFolder, bool useStreamingAsset)
+        {
+            var withExt = $"{appFolder}/appBundle.bundle";
+            var legacy = $"{appFolder}/appBundle";
+
+            if (useStreamingAsset)
+                return BetterStreamingAssets.FileExists(withExt) ? withExt : legacy;
+
+            return File.Exists(withExt) ? withExt : legacy;
+        }
+
         public bool UseSceneName => Id == 35;
 
         /// <summary>
@@ -111,54 +124,21 @@ namespace App.Core
         /// </summary>
         public IEnumerator LoadScene()
         {
-            var use2022List = new HashSet<int>()
-            {
-                2,
-                3,
-                24,
-                26,
-                40,
-                144,
-                148,
-                207,
-                213,
-                214,
-                180
-            };
-
-            // High chance these needed new timeline references.
-            
-            var use2022 = use2022List.Contains(Id);
             // Extract if you haven't?
             Extract(Id);
 
             LogMemory("[Loading]");
             _avatarBefore = VRAvatar.Active;
 
-            // Need to make it not use streaming assets. You can only do this when you can check the version. 
-            // At the moment, it'll treat StreamingAsset as the main.
-            // should I use streaming or non streaming.
+            // StreamingAssets takes precedence over persistentDataPath if a folder is present there.
             var streamingAssetFolderPath = $"Limapps/{GetPlatformName()}/{Id}";
             var useStreamingAsset = BetterStreamingAssets.DirectoryExists(streamingAssetFolderPath);
 
             var appFolder = useStreamingAsset ? streamingAssetFolderPath : GetLimappPath(Id);
-            //var assemblyFolder = $"{appFolder}/assemblyFolder";
-            //var asmPaths = GetAssemblyPaths();
-            //var assemblies = new List<Assembly>();
-            //Assemblies = assemblies;
-
-            //EnsureEmulatorFlagIsFalse();
-            //LoadAssemblies();
 
             LoadState = ELimappLoadState.LoadingAssetBundle;
 
-            var bundlePath = $"{appFolder}/appBundle";
-
-            if (use2022)
-            {
-                useStreamingAsset = true; // For now let's always use streaming asset.
-                bundlePath = $"LimappsV3/{Id}/{GetPlatformNameV3()}/appscene";
-            }
+            var bundlePath = ResolveBundlePath(appFolder, useStreamingAsset);
 
             AssetBundle assetBundle = null;
 
@@ -167,6 +147,7 @@ namespace App.Core
             {
                 if (useStreamingAsset)
                 {
+                    Debug.Log($"Loading from streaming asset at {bundlePath}");
                     var request = BetterStreamingAssets.LoadAssetBundleAsync(bundlePath);
                     yield return new WaitUntil(() => request.isDone);
                     assetBundle = request.assetBundle;
@@ -175,6 +156,7 @@ namespace App.Core
                 }
                 else
                 {
+                    Debug.Log($"Loading from file at {bundlePath}");
                     var fileStream = new FileStream(bundlePath, FileMode.Open, FileAccess.Read);
                     var request = AssetBundle.LoadFromStreamAsync(fileStream);
                     yield return new WaitUntil(() => request.isDone);
@@ -228,16 +210,6 @@ namespace App.Core
 
             void PlayApp(Scene scene, LoadSceneMode mode)
             {
-                ExperienceApp = GetExperienceApp();
-                if (ExperienceApp == null)
-                {
-                    Debug.LogError("Cannot find experience app.");
-                    SceneManager.sceneLoaded -= PlayApp;
-                    return;
-                }
-
-                Debug.Log("Initialize app.");
-                ExperienceApp.gameObject.SetActive(true);
                 SceneManager.SetActiveScene(scene);
                 SceneManager.sceneLoaded -= PlayApp;
 
@@ -363,13 +335,6 @@ namespace App.Core
         {
             var platformName = Application.platform == RuntimePlatform.Android ? "Android" : "Standalone";
             var resolvedName = Application.isEditor ? "Standalone" : platformName;
-            return resolvedName;
-        }
-
-        public static string GetPlatformNameV3()
-        {
-            var platformName = Application.platform == RuntimePlatform.Android ? "Android" : "StandaloneWindows";
-            var resolvedName = Application.isEditor ? "StandaloneWindows" : platformName;
             return resolvedName;
         }
 
@@ -512,43 +477,8 @@ namespace App.Core
         /// </summary>
         private void InitializeApp()
         {
-            ExperienceApp.GetComponentInChildren<CompoundScreenFader>(includeInactive: true).enabled = true;
-
-            SceneManager.SetActiveScene(ExperienceApp.gameObject.scene);
-
             // Forcing this to be null
-            ExperienceApp.LimappConfig = null;
-
-            // Check for cameras
-            var cameras = ExperienceApp.GetComponentsInChildren<Camera>(includeInactive: true);
-            foreach (var camera in cameras)
-            {
-                if (!camera.transform.name.Equals("CenterEye") && camera.stereoTargetEye == StereoTargetEyeMask.Both)
-                {
-                    Debug.Log($"Adding pose driver for {camera.name}");
-                    camera.gameObject.AddComponent<TrackedPoseDriver>();
-                    // The default driver doesn't need any modification for eyes.
-                }
-            }
-
             ApplyExperienceSettings(Id);
-
-            CoroutineService.Instance.StartCoroutine(DelayMaterialChanges());
-
-            ExperienceApp.gameObject.SetActive(true);
-            // This can't be turned on!
-            //var method = ExperienceAppReflectionCache.InitializeMethod;
-            //CoroutineService.Instance.StartCoroutine((IEnumerator)method.Invoke(ExperienceApp, null));
-
-            // TODO I want to know what is the point of calling Resume here? 
-            try
-            {
-                ExperienceApp.Resume();
-            }
-            catch
-            {
-                // ignored
-            }
         }
 
         private void ApplyExperienceSettings(int id)
@@ -565,48 +495,6 @@ namespace App.Core
             }
         }
 
-        IEnumerator DelayMaterialChanges()
-        {
-            yield return new WaitForSeconds(1);
-            var limappPlayer = LimappPlayer.Instance;
-
-            // Check for URP materials
-            var renderers = ExperienceApp.GetComponentsInChildren<Renderer>(includeInactive: true);
-            foreach (var renderer in renderers)
-            {
-                for (var i = renderer.materials.Length - 1; i >= 0; i--)
-                {
-                    var rendererMaterial = renderer.materials[i];
-
-
-                    if (rendererMaterial.name.Contains("MAT_Unlit"))
-                    {
-                        renderer.material = limappPlayer.UnlitMaterial;
-                    }
-
-                    if (rendererMaterial.name.Contains("MAT_Grid"))
-                    {
-                        renderer.material = limappPlayer.GridMaterial;
-                    }
-
-                    //Debug.Log($"[Platform Simulator] - Found Material {rendererMaterial.name}");
-                    if (rendererMaterial.shader.name.Equals("Lightweight Render Pipeline/Unlit"))
-                    {
-                        //rendererMaterial.shader = unlitShader;
-                        //Debug.Log($"[Platform Simulator] - Updated Material {rendererMaterial.name}");
-                    }
-
-                    if (rendererMaterial.shader.name.Equals("Shader Graphs/Grid"))
-                    {
-                        // Not ideal.
-                        //renderer.material = new Material(PlatformSimulator.Instance.GridMaterial);
-                        //rendererMaterial.shader = gridShader;
-                        //rendererMaterial.shader = testShader;
-                        //Debug.Log($"[Platform Simulator] - Updated Material {rendererMaterial.name}");
-                    }
-                }
-            }
-        }
 
         public static void FindMissingReferences(MonoBehaviour component)
         {

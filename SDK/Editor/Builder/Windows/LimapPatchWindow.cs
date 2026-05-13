@@ -685,6 +685,171 @@ namespace Liminal.SDK.Build
             }
         }
 
+        /// <summary>
+        /// Folder holding the single shared Editor asmdef that all per-folder asmrefs point to.
+        /// Kept outside <c>Assets/_Builds</c> so it isn't covered by project gitignores that exclude build output.
+        /// </summary>
+        public const string SharedEditorAsmdefFolder = "_LimappEditor";
+
+        /// <summary>
+        /// One-shot project setup for the asmdef-driven build pipeline.
+        ///
+        /// Creates:
+        ///   1. The primary (Player) asmdef at <c>Assets/&lt;AppName&gt;.asmdef</c>, referencing every Player asmdef in the project.
+        ///   2. A single shared Editor asmdef at <c>Assets/_LimappEditor/&lt;AppName&gt;.Editor.asmdef</c>.
+        ///   3. A <c>.asmref</c> in every <c>/Editor</c> subfolder pointing back to the shared Editor asmdef, so all editor
+        ///      scripts in the project compile into one assembly and can freely reference each other across folders.
+        ///
+        /// Skips the SDK tree and any subtree governed by a foreign (non-auto-generated) asmdef.
+        /// Idempotent — re-running migrates legacy per-folder Editor asmdefs (path-derived names) into asmrefs in place.
+        /// </summary>
+        public static void SetupLimappBuild()
+        {
+            var manifest = AppBuilder.ReadAppManifest();
+            var primaryName = manifest.Name;
+            var sharedEditorAsmdefName = primaryName + ".Editor";
+            var sharedEditorFolderAbs = Path.Combine(Application.dataPath, SharedEditorAsmdefFolder).Replace('\\', '/');
+
+            CreateAssemblyDefinition(Application.dataPath, isPrimary: true);
+            CreateSharedEditorAsmdef(sharedEditorFolderAbs, sharedEditorAsmdefName, primaryName);
+
+            var rootAsmdefAbsolutePath = Path.Combine(Application.dataPath, primaryName + ".asmdef").Replace('\\', '/');
+            var liminalSdkRoot = Path.Combine(Application.dataPath, "Liminal").Replace('\\', '/');
+            var asmrefCount = 0;
+            var legacyRemovedCount = 0;
+            AddEditorAsmrefsUnder(
+                Application.dataPath, rootAsmdefAbsolutePath, sharedEditorAsmdefName, sharedEditorFolderAbs, liminalSdkRoot,
+                ref asmrefCount, ref legacyRemovedCount);
+
+            AssetDatabase.Refresh();
+            CompilationPipeline.RequestScriptCompilation();
+            Debug.Log($"[Liminal.Build] Setup complete. Root asmdef '{primaryName}', shared Editor asmdef '{sharedEditorAsmdefName}', {asmrefCount} asmref(s) created, {legacyRemovedCount} legacy per-folder Editor asmdef(s) removed. Wait for Unity to finish recompiling, then run Build.");
+        }
+
+        private static void CreateSharedEditorAsmdef(string folderAbsolutePath, string editorAsmdefName, string rootAsmdefName)
+        {
+            if (!Directory.Exists(folderAbsolutePath))
+                Directory.CreateDirectory(folderAbsolutePath);
+
+            var asmdefAbs = Path.Combine(folderAbsolutePath, editorAsmdefName + ".asmdef");
+            if (File.Exists(asmdefAbs))
+            {
+                Debug.Log($"[Liminal.Build] Shared Editor asmdef already exists at {asmdefAbs}");
+                return;
+            }
+
+            var asm = new AsmDef
+            {
+                Name = editorAsmdefName,
+                AutoReferenced = true,
+                References = new List<string> { rootAsmdefName },
+                IncludePlatforms = new List<string> { "Editor" }
+            };
+            File.WriteAllText(asmdefAbs, JsonConvert.SerializeObject(asm, Formatting.Indented));
+            AssetDatabase.Refresh();
+            AssetDatabase.ImportAsset(ToAssetPath(asmdefAbs));
+            Debug.Log($"[Liminal.Build] Created shared Editor asmdef at {asmdefAbs}");
+        }
+
+        private static void AddEditorAsmrefsUnder(
+            string absoluteFolder,
+            string rootAsmdefAbsolutePath,
+            string sharedEditorAsmdefName,
+            string sharedEditorFolderAbs,
+            string liminalSdkRoot,
+            ref int asmrefCount,
+            ref int legacyRemovedCount)
+        {
+            var normalised = absoluteFolder.Replace('\\', '/');
+
+            // Skip the SDK tree.
+            if (normalised.Equals(liminalSdkRoot, StringComparison.OrdinalIgnoreCase) ||
+                normalised.StartsWith(liminalSdkRoot + "/", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // Skip the folder that hosts the shared Editor asmdef itself.
+            if (normalised.Equals(sharedEditorFolderAbs, StringComparison.OrdinalIgnoreCase) ||
+                normalised.StartsWith(sharedEditorFolderAbs + "/", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // Inspect existing asmdefs here. Tolerate the root asmdef and any legacy auto-generated per-folder Editor
+            // asmdefs (path-derived name == folder dotted path). Foreign asmdefs block descent into the subtree.
+            var asmdefsHere = Directory.GetFiles(absoluteFolder, "*.asmdef", SearchOption.TopDirectoryOnly);
+            foreach (var asmdefAbs in asmdefsHere)
+            {
+                var isRoot = string.Equals(
+                    Path.GetFullPath(asmdefAbs),
+                    Path.GetFullPath(rootAsmdefAbsolutePath),
+                    StringComparison.OrdinalIgnoreCase);
+                if (isRoot)
+                    continue;
+
+                if (IsLegacyAutoGeneratedAsmdef(asmdefAbs, absoluteFolder))
+                {
+                    var assetPath = ToAssetPath(asmdefAbs);
+                    if (AssetDatabase.DeleteAsset(assetPath))
+                    {
+                        legacyRemovedCount++;
+                        Debug.Log($"[Liminal.Build] Removed legacy auto-generated asmdef at {assetPath}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[Liminal.Build] Failed to remove legacy asmdef at {assetPath} — delete manually if needed.");
+                    }
+                    continue;
+                }
+
+                // Foreign asmdef governs the subtree; leave it (and its subtree) alone.
+                return;
+            }
+
+            if (Path.GetFileName(absoluteFolder).Equals("Editor", StringComparison.OrdinalIgnoreCase))
+            {
+                if (CreateAsmRef(absoluteFolder, sharedEditorAsmdefName))
+                    asmrefCount++;
+            }
+
+            foreach (var sub in Directory.GetDirectories(absoluteFolder))
+            {
+                AddEditorAsmrefsUnder(
+                    sub, rootAsmdefAbsolutePath, sharedEditorAsmdefName, sharedEditorFolderAbs, liminalSdkRoot,
+                    ref asmrefCount, ref legacyRemovedCount);
+            }
+        }
+
+        private static bool IsLegacyAutoGeneratedAsmdef(string asmdefAbsolutePath, string folderAbsolutePath)
+        {
+            var asmdefName = Path.GetFileNameWithoutExtension(asmdefAbsolutePath);
+            var expected = folderAbsolutePath.Substring(folderAbsolutePath.IndexOf("Assets"))
+                .Replace('/', '.').Replace('\\', '.');
+            return string.Equals(asmdefName, expected, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool CreateAsmRef(string folderAbsolutePath, string sharedEditorAsmdefName)
+        {
+            var relative = folderAbsolutePath.Substring(folderAbsolutePath.IndexOf("Assets"));
+            var fileName = relative.Replace('/', '.').Replace('\\', '.') + ".asmref";
+            var asmrefAbs = Path.Combine(folderAbsolutePath, fileName);
+
+            if (File.Exists(asmrefAbs))
+            {
+                Debug.Log($"[Liminal.Build] Asmref already exists at {asmrefAbs}");
+                return false;
+            }
+
+            var asmref = new { reference = sharedEditorAsmdefName };
+            File.WriteAllText(asmrefAbs, JsonConvert.SerializeObject(asmref, Formatting.Indented));
+            AssetDatabase.ImportAsset(ToAssetPath(asmrefAbs));
+            Debug.Log($"[Liminal.Build] Created asmref at {asmrefAbs} → {sharedEditorAsmdefName}");
+            return true;
+        }
+
+        private static string ToAssetPath(string absolutePath)
+        {
+            var idx = absolutePath.IndexOf("Assets");
+            return idx >= 0 ? absolutePath.Substring(idx).Replace('\\', '/') : absolutePath;
+        }
+
         private static void CreateAssemblyDefinition(string folderPath, bool isPrimary)
         {
             var appManifest = AppBuilder.ReadAppManifest();
@@ -699,15 +864,6 @@ namespace Liminal.SDK.Build
             var fileName = uniqueName + ".asmdef";
             var fullPath = System.IO.Path.Combine(folderPath, fileName);
 
-            // TODO just make a class!
-            var sdkReferences = $"    \"references\": [\"LiminalSdk\"]\n";
-            var references = isPrimary ? sdkReferences : $"    \"references\": [\"{primaryName}\"]\n";
-            var includePlatform = isPrimary ? "" : $"    \"includePlatforms\": [\"Editor\"],\n";
-            var autoReferences = isPrimary ? $"    \"autoReferenced\": true,\n" : $"    \"autoReferenced\": false,\n";
-
-            // if file exist, delete it?
-
-            var overwrite = true;
             if (!System.IO.File.Exists(fullPath))
             {
                 var newAsm = new AsmDef
@@ -720,7 +876,7 @@ namespace Liminal.SDK.Build
 
                 if (isPrimary)
                 {
-                    newAsm.References.Add("LiminalSdk");
+                    newAsm.References.AddRange(CollectRootAsmdefReferences(primaryName));
                 }
                 else
                 {
@@ -730,26 +886,66 @@ namespace Liminal.SDK.Build
 
                 var newAsmJson = JsonConvert.SerializeObject(newAsm, Formatting.Indented);
 
-                // Manually create the JSON string
-                /*string assemblyDefinitionContent = $"{{\n" +
-                                                   $"    \"name\": \"{uniqueName}\",\n" +
-                                                   autoReferences +
-                                                   includePlatform +
-                                                   references +
-                                                   $"}}";*/
-
                 System.IO.File.WriteAllText(fullPath, newAsmJson);
-                AssetDatabase.Refresh(); // Ensure the AssetDatabase is refreshed
+                AssetDatabase.Refresh();
                 AssetDatabase.ImportAsset(fullPath);
 
-                Debug.Log($"Assembly Definition File created at: {fullPath}");
+                Debug.Log($"[Liminal.Build] Created assembly definition at {fullPath} with {newAsm.References.Count} reference(s).");
+            }
+            else if (isPrimary)
+            {
+                // Already exists — refresh the references list so newly added packages are picked up.
+                var asmJson = File.ReadAllText(fullPath);
+                var asm = JsonConvert.DeserializeObject<AsmDef>(asmJson);
+
+                var newRefs = CollectRootAsmdefReferences(primaryName);
+                var existing = asm.References ?? new List<string>();
+                var changed = newRefs.Count != existing.Count || !newRefs.SequenceEqual(existing);
+
+                if (changed)
+                {
+                    asm.References = newRefs;
+                    File.WriteAllText(fullPath, JsonConvert.SerializeObject(asm, Formatting.Indented));
+                    AssetDatabase.ImportAsset(fullPath);
+                    Debug.Log($"[Liminal.Build] Refreshed root assembly references ({newRefs.Count}) at {fullPath}.");
+                }
+                else
+                {
+                    Debug.Log($"[Liminal.Build] Root assembly definition '{asm.Name}' is up to date.");
+                }
             }
             else
             {
-                var asmJson = File.ReadAllText(fullPath);
-                var asm = JsonConvert.DeserializeObject<AsmDef>(asmJson);
-                Debug.Log($"Assembly Definition File {asm.Name} already exists at: {fullPath}");
+                Debug.Log($"[Liminal.Build] Editor assembly definition already exists at {fullPath}.");
             }
+        }
+
+        /// <summary>
+        /// Collects the names of every Player-target asmdef in the project (Assets + Packages) so the
+        /// root limapp asmdef can reference them. Editor-only asmdefs are excluded automatically because
+        /// <see cref="AssembliesType.Player"/> never returns them. Predefined assemblies (Assembly-CSharp*)
+        /// and the root asmdef itself are also skipped.
+        /// </summary>
+        private static List<string> CollectRootAsmdefReferences(string primaryName)
+        {
+            var refs = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var asm in CompilationPipeline.GetAssemblies(AssembliesType.Player))
+            {
+                if (string.Equals(asm.name, primaryName, StringComparison.Ordinal))
+                    continue;
+
+                if (asm.name.StartsWith("Assembly-CSharp", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                refs.Add(asm.name);
+            }
+
+            // Always include LiminalSdk explicitly — covers the case where compilation hasn't run yet
+            // and CompilationPipeline returns a stale or empty list.
+            refs.Add("LiminalSdk");
+
+            return refs.OrderBy(s => s, StringComparer.Ordinal).ToList();
         }
 
         public class AsmDef

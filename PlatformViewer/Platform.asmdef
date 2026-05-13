@@ -4,7 +4,8 @@
     "references": [
         "External",
         "LiminalSdk",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.XR.Interaction.Toolkit"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

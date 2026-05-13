@@ -90,10 +90,10 @@ namespace App.core
                 var useURP = new HashSet<int>() { 40 };
                 var id = limapp.Id;
 
-                var asset = useURP.Contains(id) ? URPAsset : null;
-                GraphicsSettings.defaultRenderPipeline = URPAsset;
-                GraphicsSettings.defaultRenderPipeline = asset;
-                QualitySettings.renderPipeline = asset;
+                //var asset = useURP.Contains(id) ? URPAsset : null;
+                //GraphicsSettings.defaultRenderPipeline = URPAsset;
+                //GraphicsSettings.defaultRenderPipeline = asset;
+                //QualitySettings.renderPipeline = asset;
 
                 _currentLimapp = limapp; // <-- Store reference
 

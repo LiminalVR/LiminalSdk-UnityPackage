@@ -13,7 +13,9 @@ permissions and limitations under the License.
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 
 using System.IO;
 using System;

@@ -20,6 +20,33 @@ namespace Liminal.SDK.Build
             DeleteLegacyPluginsAndroid();
         }
 
+        /// <summary>
+        /// True when every change made by <see cref="ConfigureAndroid"/> is already in effect.
+        /// Surfaced as the "Done" badge in the Setup wizard.
+        /// </summary>
+        public static bool IsAndroidConfigured()
+        {
+            if (PlayerSettings.colorSpace != ColorSpace.Linear)
+                return false;
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+                return false;
+            if ((int)PlayerSettings.Android.minSdkVersion < (int)MinAndroidSdk)
+                return false;
+
+            var defines = PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.Android) ?? string.Empty;
+            var hasOvrDefine = defines
+                .Split(new[] { ';' }, System.StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .Contains(OvrAndroidMrcDefine);
+            if (!hasOvrDefine)
+                return false;
+
+            if (AssetDatabase.IsValidFolder(LegacyPluginsAndroidPath))
+                return false;
+
+            return true;
+        }
+
         private static void EnsureLinearColorSpace()
         {
             if (PlayerSettings.colorSpace == ColorSpace.Linear)

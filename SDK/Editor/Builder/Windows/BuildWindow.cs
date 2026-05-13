@@ -1,8 +1,6 @@
 ﻿using System;
 using Liminal.SDK.Editor.Build;
-using System.Collections.Generic;
-using System.Reflection;
-using Newtonsoft.Json.Serialization;
+using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -14,7 +12,6 @@ namespace Liminal.SDK.Build
     /// </summary>
     public class BuildWindow : BaseWindowDrawer
     {
-        private string _referenceInput;
         private int _selectedBuildTarget;
 
         public override void Draw(BuildWindowConfig config)
@@ -57,124 +54,43 @@ namespace Liminal.SDK.Build
 
                 config.SelectedPlatform = _selectedPlatform;
 
-                _compressionType = config.CompressionType;
-                _compressionType = (ECompressionType)EditorGUILayout.EnumPopup("Compression Format", _compressionType);
-                config.CompressionType = _compressionType;
-
-                if (_compressionType == ECompressionType.Uncompressed)
-                {
-                    EditorGUILayout.LabelField("Uncompressed limapps are not valid for release.", EditorStyles.boldLabel);
-                }
-
-                GUILayout.Space(EditorGUIUtility.singleLineHeight);
-                EditorGUILayout.LabelField("Additional References");
-                EditorGUI.indentLevel++;
-
-                var toRemove = new List<string>();
-                foreach (var reference in config.AdditionalReferences)
-                {
-                    GUILayout.BeginHorizontal();
-                    {
-                        EditorGUILayout.LabelField(reference);
-                        if (GUILayout.Button("X"))
-                        {
-                            toRemove.Add(reference);
-                        }
-                    }
-                    GUILayout.EndHorizontal();
-                }
-
-                foreach (var reference in toRemove)
-                {
-                    config.AdditionalReferences.Remove(reference);
-                }
-
-                GUILayout.BeginHorizontal();
-                {
-                    _referenceInput = EditorGUILayout.TextField("Reference: ", _referenceInput);
-                    if (GUILayout.Button("+"))
-                    {
-                        if (string.IsNullOrEmpty(_referenceInput))
-                            return;
-
-                        if (config.DefaultAdditionalReferences.Contains(_referenceInput))
-                        {
-                            Debug.Log($"The default references already included {_referenceInput}");
-                            return;
-                        }
-
-                        var refAsm = Assembly.Load(_referenceInput);
-                        if (refAsm == null)
-                        {
-                            Debug.LogError($"Assembly: {_referenceInput} does not exist.");
-                            return;
-                        }
-
-                        if (!config.AdditionalReferences.Contains(_referenceInput))
-                            config.AdditionalReferences.Add(_referenceInput);
-
-                        _referenceInput = "";
-                    }
-                }
-                GUILayout.EndHorizontal();
-                EditorGUI.indentLevel--;
-
-                GUILayout.FlexibleSpace();
-                var enabled = !_scenePath.Equals(string.Empty);
-                if(!enabled)
-                    GUILayout.Label("Scene cannot be empty", "CN StatusWarn");
-
-                GUI.enabled = !EditorApplication.isCompiling;
-
-                if (GUILayout.Button("Build"))
-                {
-                    //run checks here.
-
-                    var buildTargetOkay = true;
-
-                    switch (_selectedPlatform)
-                    {
-                        case BuildPlatform.GearVR when EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android:
-                        case BuildPlatform.Standalone when EditorUserBuildSettings.activeBuildTarget != BuildTarget.StandaloneWindows:
-                            buildTargetOkay = false;
-                            break;
-                    }
-
-                    if (!buildTargetOkay)
-                    {
-                        if (EditorUtility.DisplayDialog("Platform Issue Detected", "Outstanding platform issues have been detected in your project. " +
-                                "To reduce build time, ensure your current build target matches your selected platform", "Build Anyway", "Cancel Build"))
-                        {
-                            buildTargetOkay = true;
-                        }
-                        else
-                        {
-                            return;
-                        }
-                    }
-
-                    IssuesUtility.CheckForAllIssues();
-
-                    var hasBuildIssues = EditorPrefs.GetBool("HasBuildIssues");
-
-                    if (hasBuildIssues)
-                    {
-                        if (EditorUtility.DisplayDialog("Build Issues Detected", "Outstanding issues have been detected in your project. " +
-                                "Navigate to Build Settings->Issues for help resolving them", "Build Anyway", "Cancel Build"))
-                        {
-                            hasBuildIssues = false;
-                        }
-                    }
-
-                    if (buildTargetOkay && !hasBuildIssues)
-                    {
-
-                        Build();
-                    }
-                }
+                _validation = RunValidation();
+                DrawValidationPanel(_validation);
 
                 EditorGUILayout.EndVertical();
             }
+        }
+
+        public override void DrawFooter(BuildWindowConfig config)
+        {
+            GUI.enabled = !EditorApplication.isCompiling && _validation.CanBuild;
+            var buildClicked = GUILayout.Button("Build", GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.5f));
+            GUI.enabled = !EditorApplication.isCompiling;
+
+            if (!buildClicked)
+                return;
+
+            var buildTargetOkay = true;
+            switch (_selectedPlatform)
+            {
+                case BuildPlatform.GearVR when EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android:
+                case BuildPlatform.Standalone when EditorUserBuildSettings.activeBuildTarget != BuildTarget.StandaloneWindows:
+                    buildTargetOkay = false;
+                    break;
+            }
+
+            if (!buildTargetOkay)
+            {
+                if (!EditorUtility.DisplayDialog("Platform Issue Detected",
+                        "Outstanding platform issues have been detected in your project. " +
+                        "To reduce build time, ensure your current build target matches your selected platform",
+                        "Build Anyway", "Cancel Build"))
+                {
+                    return;
+                }
+            }
+
+            Build();
         }
 
         private void Build()
@@ -189,13 +105,11 @@ namespace Liminal.SDK.Build
                     break;
 
                 case BuildPlatform.GearVR:
-                    AppBuilder.BuildLimapp(BuildTarget.Android, AppBuildInfo.BuildTargetDevices.GearVR,
-                        _compressionType);
+                    AppBuilder.BuildLimapp(BuildTarget.Android, AppBuildInfo.BuildTargetDevices.GearVR);
                     break;
 
                 case BuildPlatform.Standalone:
-                    AppBuilder.BuildLimapp(BuildTarget.StandaloneWindows, AppBuildInfo.BuildTargetDevices.Emulator,
-                        _compressionType);
+                    AppBuilder.BuildLimapp(BuildTarget.StandaloneWindows, AppBuildInfo.BuildTargetDevices.Emulator);
                     break;
             }
         }
@@ -226,9 +140,151 @@ namespace Liminal.SDK.Build
         }
 
         private BuildPlatform _selectedPlatform;
-        private ECompressionType _compressionType;
         private SceneAsset _targetScene;
         private string _scenePath = string.Empty;
+        private BuildValidation _validation;
+
+        private BuildValidation RunValidation()
+        {
+            var v = new BuildValidation();
+
+            v.SceneOk = !string.IsNullOrEmpty(_scenePath);
+            v.SceneDetail = v.SceneOk ? _scenePath : "No scene selected";
+
+            AppManifest manifest = null;
+            try
+            {
+                manifest = AppBuilder.ReadAppManifest();
+                v.ManifestOk = manifest.Id > 0;
+                v.ManifestDetail = v.ManifestOk
+                    ? $"Id={manifest.Id}, Name={manifest.Name}"
+                    : "Manifest Id is 0 — run 'Liminal > Create or Update App Manifest'";
+            }
+            catch (Exception ex)
+            {
+                v.ManifestOk = false;
+                v.ManifestDetail = ex.Message;
+            }
+
+            var asmName = manifest?.Name;
+            v.AsmName = asmName;
+
+            if (!string.IsNullOrEmpty(asmName))
+            {
+                var asmdefPath = Path.Combine(Application.dataPath, asmName + ".asmdef").Replace('\\', '/');
+                v.AsmdefOk = File.Exists(asmdefPath);
+                v.AsmdefDetail = v.AsmdefOk
+                    ? asmdefPath
+                    : "Missing — click 'Setup Limapp Build' to create";
+
+                var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                var dllPath = Path.Combine(projectRoot, "Library/Bee/PlayerScriptAssemblies", asmName + ".dll").Replace('\\', '/');
+                if (File.Exists(dllPath))
+                {
+                    v.PlayerDllOk = true;
+                    var info = new FileInfo(dllPath);
+                    v.PlayerDllDetail = $"{dllPath}  ({info.Length / 1024} KB, {info.LastWriteTime:g})";
+                }
+                else
+                {
+                    v.PlayerDllOk = false;
+                    v.PlayerDllDetail = $"Not found at {dllPath} — Build will offer to compile it on demand";
+                }
+            }
+            else
+            {
+                v.AsmdefDetail = "Manifest must be valid first";
+                v.PlayerDllDetail = "Manifest must be valid first";
+            }
+
+            var activeTarget = EditorUserBuildSettings.activeBuildTarget;
+            v.TargetOk = true;
+            v.TargetDetail = $"Active: {activeTarget}, Selected: {_selectedPlatform}";
+            switch (_selectedPlatform)
+            {
+                case BuildPlatform.GearVR when activeTarget != BuildTarget.Android:
+                case BuildPlatform.Standalone when activeTarget != BuildTarget.StandaloneWindows:
+                    v.TargetOk = false;
+                    v.TargetDetail += " — switch active target to avoid a slow re-compile";
+                    break;
+            }
+
+            v.CompileOk = !EditorApplication.isCompiling;
+            v.CompileDetail = v.CompileOk ? "Idle" : "Compilation in progress — wait before building";
+
+            return v;
+        }
+
+        private static void DrawValidationPanel(BuildValidation v)
+        {
+            GUILayout.Space(EditorGUIUtility.singleLineHeight);
+            EditorGUILayout.LabelField("Validation", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            DrawCheck("Scene assigned", v.SceneOk, v.SceneDetail);
+            DrawCheck("App manifest", v.ManifestOk, v.ManifestDetail);
+
+            Action setupFix = (!v.AsmdefOk && v.ManifestOk) ? (Action)LimapPatchWindow.SetupLimappBuild : null;
+            DrawCheck("Root asmdef", v.AsmdefOk, v.AsmdefDetail, fixLabel: "Setup", onFix: setupFix);
+
+            Action compileFix = null;
+            if (!v.PlayerDllOk && v.ManifestOk && v.AsmdefOk && !string.IsNullOrEmpty(v.AsmName))
+            {
+                var asmName = v.AsmName;
+                compileFix = () =>
+                {
+                    try
+                    {
+                        AppBuilder.EnsurePlayerDll(asmName);
+                    }
+                    catch (Exception ex)
+                    {
+                        EditorUtility.ClearProgressBar();
+                        Debug.LogError($"[Liminal.Build] Failed to compile player DLL: {ex.Message}");
+                    }
+                };
+            }
+            DrawCheck("Player DLL (no UNITY_EDITOR)", v.PlayerDllOk, v.PlayerDllDetail,
+                fixLabel: "Compile", onFix: compileFix);
+
+            DrawCheck("Build target", v.TargetOk, v.TargetDetail, warningOnly: true);
+            DrawCheck("Scripts not compiling", v.CompileOk, v.CompileDetail);
+            EditorGUI.indentLevel--;
+        }
+
+        private static void DrawCheck(string label, bool ok, string detail, bool warningOnly = false, string fixLabel = null, Action onFix = null)
+        {
+            var iconName = ok ? "TestPassed" : (warningOnly ? "TestIgnored" : "TestFailed");
+            var icon = EditorGUIUtility.IconContent(iconName);
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label(icon, GUILayout.Width(20), GUILayout.Height(EditorGUIUtility.singleLineHeight));
+            EditorGUILayout.LabelField(label, GUILayout.Width(220));
+            EditorGUILayout.LabelField(detail, EditorStyles.miniLabel);
+            if (!ok && onFix != null && !string.IsNullOrEmpty(fixLabel))
+            {
+                if (GUILayout.Button(fixLabel, GUILayout.Width(80)))
+                    onFix();
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private struct BuildValidation
+        {
+            public string AsmName;
+            public bool SceneOk;
+            public string SceneDetail;
+            public bool ManifestOk;
+            public string ManifestDetail;
+            public bool AsmdefOk;
+            public string AsmdefDetail;
+            public bool PlayerDllOk;
+            public string PlayerDllDetail;
+            public bool TargetOk;
+            public string TargetDetail;
+            public bool CompileOk;
+            public string CompileDetail;
+
+            public bool CanBuild => SceneOk && ManifestOk && AsmdefOk && CompileOk;
+        }
     }
 
     public enum BuildPlatform

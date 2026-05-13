@@ -24,11 +24,6 @@ namespace Liminal.SDK.Build
         public BuildTargetDevices BuildTargetDevice { get; set; }
 
         /// <summary>
-        /// The compression type for the build
-        /// </summary>
-        public ECompressionType CompressionType { get; set; }
-
-        /// <summary>
         /// The Targeted device for the app package
         /// </summary>
         public enum BuildTargetDevices

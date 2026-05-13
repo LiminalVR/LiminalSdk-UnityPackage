@@ -30,6 +30,33 @@ namespace Liminal.SDK.Build
             AssetDatabase.Refresh();
         }
 
+        /// <summary>
+        /// True when both Android and Standalone have the Oculus loader assigned and 'Initialize XR on Startup'
+        /// enabled. Surfaced as the "Done" badge in the Setup wizard.
+        /// </summary>
+        public static bool IsOculusConfiguredForAndroidAndStandalone()
+        {
+            if (!EditorBuildSettings.TryGetConfigObject<XRGeneralSettingsPerBuildTarget>(XRGeneralSettings.k_SettingsKey, out var perTarget) || perTarget == null)
+                return false;
+
+            return IsOculusConfiguredForTarget(perTarget, BuildTargetGroup.Android)
+                && IsOculusConfiguredForTarget(perTarget, BuildTargetGroup.Standalone);
+        }
+
+        private static bool IsOculusConfiguredForTarget(XRGeneralSettingsPerBuildTarget perTarget, BuildTargetGroup target)
+        {
+            var settings = perTarget.SettingsForBuildTarget(target);
+            if (settings == null || !settings.InitManagerOnStart || settings.Manager == null)
+                return false;
+
+            foreach (var loader in settings.Manager.activeLoaders)
+            {
+                if (loader != null && loader.GetType().FullName == OculusLoaderTypeName)
+                    return true;
+            }
+            return false;
+        }
+
         private static void EnableXRInteractionSimulator()
         {
             var type = Type.GetType(SimulatorSettingsTypeName);

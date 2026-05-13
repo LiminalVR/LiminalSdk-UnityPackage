@@ -21,6 +21,7 @@ namespace Liminal.SDK.Build
 
         private BuildSettingMenus _selectedMenu = BuildSettingMenus.Setup;
         private BuildWindowConfig _windowConfig = new BuildWindowConfig();
+        private Vector2 _scroll;
 
         public int SelectedMenuIndex { get { return (int)_selectedMenu; } }
 
@@ -55,7 +56,6 @@ namespace Liminal.SDK.Build
             }
 
             SetupFolderPaths();
-            SetupPreviewScene();
 
             SetupMenuWindows();
             
@@ -65,14 +65,25 @@ namespace Liminal.SDK.Build
 
         private void OnGUI()
         {
-            var tabs = Enum.GetNames(typeof(BuildSettingMenus));
+            var values = (BuildSettingMenus[])Enum.GetValues(typeof(BuildSettingMenus));
+            var tabs = new string[values.Length];
+            for (var i = 0; i < values.Length; i++)
+                tabs[i] = values[i].ToString();
+
             EditorGUI.BeginChangeCheck();
             _selectedMenu = (BuildSettingMenus) GUILayout.Toolbar(SelectedMenuIndex, tabs);
             var activeWindow = BuildSettingLookup[_selectedMenu];
             if(EditorGUI.EndChangeCheck())
+            {
                 activeWindow.OnEnabled();
+                _scroll = Vector2.zero;
+            }
 
+            _scroll = EditorGUILayout.BeginScrollView(_scroll);
             activeWindow.Draw(_windowConfig);
+            EditorGUILayout.EndScrollView();
+
+            activeWindow.DrawFooter(_windowConfig);
 
             if (!Directory.Exists(BuildWindowConsts.ConfigFolderPath))
             {
@@ -93,39 +104,19 @@ namespace Liminal.SDK.Build
         private void SetupMenuWindows()
         {
             BuildSettingLookup.AddSafe(BuildSettingMenus.Build, new BuildWindow());
-            BuildSettingLookup.AddSafe(BuildSettingMenus.Issues, new IssueWindow());
             BuildSettingLookup.AddSafe(BuildSettingMenus.Publishing, new PublishConfigurationWindow());
             BuildSettingLookup.AddSafe(BuildSettingMenus.Setup, new SetupWindow());
-            BuildSettingLookup.AddSafe(BuildSettingMenus.Preview, new AppPreviewWindow());
             BuildSettingLookup.AddSafe(BuildSettingMenus.Settings, new SettingsWindow());
-            BuildSettingLookup.AddSafe(BuildSettingMenus.Migration, new LimapPatchWindow());
-            BuildSettingLookup.AddSafe(BuildSettingMenus.SceneMigration, new SceneMigrationWindow());
         }
 
         private void SetupFolderPaths()
         {
-            if (!Directory.Exists(BuildWindowConsts.PlatformSceneFolderPath))
-            {
-                Directory.CreateDirectory(BuildWindowConsts.PlatformSceneFolderPath);
-            }
-
             if (!Directory.Exists(BuildWindowConsts.BuildPath))
             {
                 Directory.CreateDirectory(BuildWindowConsts.BuildPath);
             }
 
             AssetDatabase.Refresh();
-        }
-
-        private void SetupPreviewScene()
-        {
-            var sceneExists = File.Exists(BuildWindowConsts.PreviewAppScenePath);
-            if (!sceneExists)
-            {
-                var scenePath = $"{UnityPackageManagerUtils.FullPackageLocation}/{BuildWindowConsts.PackagePreviewAppScenePath}";
-                File.Copy(scenePath, BuildWindowConsts.PreviewAppScenePath);
-                AssetDatabase.Refresh();
-            }
         }
     }
 }

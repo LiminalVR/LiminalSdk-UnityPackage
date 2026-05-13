@@ -76,9 +76,6 @@ namespace Liminal.SDK.V2
         [ContextMenu("2 - Scene Setup")]
         public void SceneSetup()
         {
-            // We hide the old exp app on purpose.
-            ExperienceApp.SetActive(false);
-
             XROrigin.Camera = AvatarHead.CenterEyeCamera;
             XROrigin.CameraFloorOffsetObject = AvatarHead.transform.gameObject;
             XROrigin.CameraYOffset = AvatarHead.transform.localPosition.y;
@@ -135,7 +132,9 @@ namespace Liminal.SDK.V2
 
             SceneSetup();
             DeviceManager.Initialize(new UnityXRDevice());
-            ExperienceApp.gameObject.SetActive(true);
+
+            if(ExperienceApp != null)
+                ExperienceApp.gameObject.SetActive(true);
         }
 
         private void LateUpdate()

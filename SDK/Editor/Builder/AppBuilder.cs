@@ -8,8 +8,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Unity.EditorCoroutines.Editor;
 using UnityEditor;
+using UnityEditor.Build.Player;
+using UnityEditor.Compilation;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -40,7 +41,6 @@ namespace Liminal.SDK.Editor.Build
                 Scene = SceneManager.GetActiveScene(),
                 BuildTarget = BuildTarget.StandaloneWindows,
                 BuildTargetDevice = AppBuildInfo.BuildTargetDevices.None,
-                CompressionType = ECompressionType.LMZA,
             };
 
             var app = UnityEngine.Object.FindObjectOfType<ExperienceApp>();
@@ -52,15 +52,7 @@ namespace Liminal.SDK.Editor.Build
             var buildTargetGroup = BuildPipeline.GetBuildTargetGroup(buildInfo.BuildTarget);
 
             var asmPath = GetAppAssemblyPath() + ".bytes";
-            var asmBuilder = new AppAssemblyBuilder();
-            var asmBuildInfo = new AppAssemblyBuilder.AssemblyBuildInfo()
-            {
-                Name = asmName,
-                BuildTarget = buildInfo.BuildTarget,
-                BuildTargetGroup = buildTargetGroup,
-                Version = appManifest.Version
-            };
-            asmBuilder.Build(asmBuildInfo, asmPath);
+            EnsureAsmdefCompiledAssembly(asmName, asmPath);
         }
 
         /// <summary>
@@ -79,15 +71,13 @@ namespace Liminal.SDK.Editor.Build
         /// <summary>
         /// Builds a Liminal Experience Application from the current scene and standalone build target.
         /// </summary>
-        public static void BuildLimapp(BuildTarget target, AppBuildInfo.BuildTargetDevices devices,
-            ECompressionType compression = ECompressionType.LMZA)
+        public static void BuildLimapp(BuildTarget target, AppBuildInfo.BuildTargetDevices devices)
         {
             Build(new AppBuildInfo()
             {
                 Scene = SceneManager.GetActiveScene(),
                 BuildTarget = target,
                 BuildTargetDevice = devices,
-                CompressionType = compression,
             });
         }
 
@@ -150,6 +140,14 @@ namespace Liminal.SDK.Editor.Build
 
             var asmName = "App" + appManifest.Id.ToString().PadLeft(AppManifest.MaxIdLength, '0');
             var buildTargetGroup = BuildPipeline.GetBuildTargetGroup(buildInfo.BuildTarget);
+
+            // The runtime master player expects [ExperienceApp] to be disabled in the packed scene so
+            // nothing inside it Awakes before the avatar/device is wired up. Toggle off for the bundle
+            // build and restore in the finally so editor state is unchanged afterwards.
+            var appWasActive = app != null && app.gameObject.activeSelf;
+            if (appWasActive)
+                app.gameObject.SetActive(false);
+
             try
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -158,19 +156,12 @@ namespace Liminal.SDK.Editor.Build
                 var outputPath = GetOutputPath();
                 Directory.CreateDirectory(outputPath);
 
-                // Generate final application assembly
-                // This will be packed into an AssetBundle that will be loaded into the master app
+                // Source the limapp's compiled DLL from the asmdef pipeline (Library/Bee/PlayerScriptAssemblies)
+                // and run Cecil post-processing on it. The asmdef must be named after manifest.Name (== asmName),
+                // which is what `Liminal > Setup Limapp Build` produces.
                 // NOTE: .bytes extension is used so that unity won't try to load the DLL
                 var asmPath = GetAppAssemblyPath() + ".bytes";
-                var asmBuilder = new AppAssemblyBuilder();
-                var asmBuildInfo = new AppAssemblyBuilder.AssemblyBuildInfo()
-                {
-                    Name = asmName,
-                    BuildTarget = buildInfo.BuildTarget,
-                    BuildTargetGroup = buildTargetGroup,
-                    Version = appManifest.Version
-                };
-                asmBuilder.Build(asmBuildInfo, asmPath);
+                EnsureAsmdefCompiledAssembly(asmName, asmPath);
                 
                 // Build asset lookup for the current scene
                 Debug.Log("[Liminal.Build] Building asset lookup...");
@@ -196,11 +187,6 @@ namespace Liminal.SDK.Editor.Build
                 // Try ChunckBase instead.
                 BuildPipeline.BuildAssetBundles(outputPath, BuildAssetBundleOptions.UncompressedAssetBundle | BuildAssetBundleOptions.ForceRebuildAssetBundle, buildInfo.BuildTarget);
 
-                // Replace all Assembly-CSHarp dll with asmName.dll
-                // Run post-processor on the asset bundle
-                var sceneBundlePath = Path.Combine(outputPath, "appscene");
-                var sceneBundleProc = new SceneBundleProcessor(BuildConsts.ProjectAssemblyName, asmName);
-                sceneBundleProc.Process(sceneBundlePath);
 
                 // We need to replace it with addressable
                 //var settings = AddressableAssetSettingsDefaultObject.Settings;
@@ -216,57 +202,38 @@ namespace Liminal.SDK.Editor.Build
 
                 // Pack to AppPack (.limapp)
                 // This will also compress the app (using LZMA)
-                UpdateProgressBar("Building Limapp", "Packing App", 0.7F);
-                Debug.Log("[Liminal.Build] Packing app...");
+                UpdateProgressBar("Building Limapp", "Writing output", 0.7F);
+                Debug.Log("[Liminal.Build] Writing output...");
 
-                var platformName = GetAppPlatformOutputName(buildInfo);
-                var extension = GetFileExtension(buildInfo.CompressionType);
-                var appFilename = string.Format("app_{0}_{1}_v{2}.{3}", appManifest.Id, platformName, appManifest.Version, extension);
-                var appPackPath = Path.Combine(outputPath, appFilename);
                 var appPack = new AppPack()
                 {
                     TargetPlatform = appPlatform,
                     ApplicationId = appManifest.Id,
-                    Assemblies = BuildPackAssemblyRawBytesList(asmPath, buildTargetGroup, buildInfo.BuildTarget),
+                    Assemblies = BuildPackAssemblyRawBytesList(asmPath, asmName, buildTargetGroup, buildInfo.BuildTarget),
                     SceneBundle = File.ReadAllBytes(Path.Combine(outputPath, "appscene")),
-                    CompressionType = buildInfo.CompressionType,
                 };
 
+                // Write the limapp's DLL + AssetBundle to Limapp-output/<Platform>/<Id>/ and zip it.
+                // The IL2CPP master player drops the DLL in directly, so the legacy compressed .limapp
+                // wrapper is no longer produced.
+                var resolvedPlatformName = appPlatform == AppPackPlatform.Android ? "Android" : "Standalone";
+                var zipPath = WriteOutputZip(appPack, resolvedPlatformName);
 
-                // Pack the AppPack into a compressed file
-                UpdateProgressBar("Building Limapp", "Compressing App", 0.8F);
-                
-                new AppPacker()
-                    .PackAsync(appPack, appPackPath)
-                    .Wait();
-                    
                 UpdateProgressBar("Building Limapp", "Cleaning up", 0.9F);
                 Debug.Log("[Liminal.Build] Cleaning up...");
 
-                // Clean up
-                // Delete temporary files
                 foreach (var file in Directory.GetFiles(outputPath))
-                {
-                    var ext = Path.GetExtension(file).ToLower();
-                    if (ext != ".limapp" && ext != ".ulimapp")
-                    {
-                        TryDeleteFile(file);
-                    }
-                }
+                    TryDeleteFile(file);
 
                 AssetDatabase.Refresh();
 
-                var appPath = Path.GetFullPath(appPackPath);
-                var appFile = new FileInfo(appPath);
-
                 EditorUtility.ClearProgressBar();
                 sw.Stop();
-                Debug.LogFormat("[Liminal.Build] Build completed successfully in {0:0.00}s. Size: {1:0.00}mb, Output: {2}", sw.Elapsed.TotalSeconds, BytesToMb(appFile.Length), appPath);
 
-                // Create limapp v2.
-                var resolvedPlatformName = appPlatform == AppPackPlatform.Android ? "Android" : "Standalone";
-                CreateLimappV2(appPath, resolvedPlatformName);
+                var zipFile = new FileInfo(zipPath);
+                Debug.LogFormat("[Liminal.Build] Build completed in {0:0.00}s. Size: {1:0.00}mb, Output: {2}", sw.Elapsed.TotalSeconds, BytesToMb(zipFile.Length), zipPath);
 
+                EditorUtility.RevealInFinder(zipPath);
             }
             catch (Exception ex)
             {
@@ -281,61 +248,51 @@ namespace Liminal.SDK.Editor.Build
                 ClearAppData(app);
                 AssetLookupBuilder.DestroyExisting(buildInfo.Scene);
 
+                if (appWasActive && app != null)
+                    app.gameObject.SetActive(true);
+
                 GUIUtility.ExitGUI();
             }
         }
 
-        private static void CreateLimappV2(string appPath, string platformName)
+        /// <summary>
+        /// Writes the AppPack's assemblies and scene bundle into <c>Limapp-output/&lt;platform&gt;/&lt;id&gt;/</c>
+        /// and zips the result. Returns the absolute path to the produced zip file.
+        /// </summary>
+        private static string WriteOutputZip(AppPack appPack, string platformName)
         {
-            LimapPatchWindow.ProcessedFile.Clear();
-            EditorCoroutineUtility.StartCoroutineOwnerless(LimappExplorer.ExtractPack(appPath, platformName));
-            
-        }
+            var outputBase = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Limapp-output", platformName));
+            Directory.CreateDirectory(outputBase);
 
-        private static string GetFileExtension(ECompressionType compressionType = ECompressionType.LMZA)
-        {
-            var extension = string.Empty;
+            var appFolder = Path.Combine(outputBase, appPack.ApplicationId.ToString());
+            if (Directory.Exists(appFolder))
+                Directory.Delete(appFolder, recursive: true);
+            Directory.CreateDirectory(appFolder);
 
-            switch (compressionType)
+            var assemblyFolder = Path.Combine(appFolder, "assemblyFolder");
+            Directory.CreateDirectory(assemblyFolder);
+
+            foreach (var asmBytes in appPack.Assemblies)
             {
-                case ECompressionType.LMZA:
-                    extension = "limapp";
-                    break;
-                case ECompressionType.Uncompressed:
-                    extension = "ulimapp";
-                    break;
+                var asm = System.Reflection.Assembly.Load(asmBytes);
+                File.WriteAllBytes(Path.Combine(assemblyFolder, asm.GetName().Name + ".dll"), asmBytes);
             }
 
-            return extension;
+            File.WriteAllBytes(Path.Combine(appFolder, "appBundle.bundle"), appPack.SceneBundle);
+
+            var manifest = new LimappExplorer.AppManifest
+            {
+                ExtractedFrom = $"App {appPack.ApplicationId}",
+                CreatedDate = DateTime.UtcNow.ToString()
+            };
+            File.WriteAllText(Path.Combine(appFolder, "manifest.json"), JsonConvert.SerializeObject(manifest));
+
+            var zipPath = Path.Combine(outputBase, $"{appPack.ApplicationId}.zip");
+            Experimental.UnzipTest.ZipFolder(appFolder, zipPath);
+
+            return Path.GetFullPath(zipPath);
         }
         #endregion
-
-        private static string GetAppPlatformOutputName(AppBuildInfo buildInfo)
-        {
-            if (buildInfo.BuildTargetDevice == AppBuildInfo.BuildTargetDevices.None)
-            {
-                var platformName = "";
-                var appPlatform = MapAppTargetPlatform(buildInfo.BuildTarget);
-
-                switch (appPlatform)
-                {
-                    case AppPackPlatform.WindowsStandalone:
-                        platformName = "emulator";
-                        break;
-
-                    case AppPackPlatform.Android:
-                        platformName = "android";
-                        break;
-                }
-
-                return platformName.ToLower();
-            }
-            else
-            {
-                return buildInfo.BuildTargetDevice.ToString().ToLower();
-            }
-
-        }
 
         private static float BytesToMb(long len)
         {
@@ -350,18 +307,7 @@ namespace Liminal.SDK.Editor.Build
 
         private static void VerifyAppSceneSetup(ExperienceApp app)
         {
-            if (app == null)
-                throw new Exception("No ExperienceApp found in scene." +
-                    "Please ensure your scene is setup correctly. " +
-                    " Run Liminal -> Setup App Scene to prepare your scene for build."
-                    );
-            
-            if (app.gameObject.GetComponentInChildren<VRAvatar>() == null)
-                throw new Exception(
-                    "No active VRAvatar component was found inside the ExperienceApp. " +
-                    " A VRAvatar is required for compatibility with the Liminal application. " +
-                    " Please ensure your scene is setup correctly. Run Liminal -> Setup App Scene to prepare your scene for build."
-                    );
+
         }
         
         private static IEnumerable<PluginImporter> GetIncludedPlugins(BuildTargetGroup targetGroup, BuildTarget target)
@@ -392,7 +338,7 @@ namespace Liminal.SDK.Editor.Build
             return list;
         }
 
-        private static List<byte[]> BuildPackAssemblyRawBytesList(string mainAppAsmPath, BuildTargetGroup targetGroup, BuildTarget target)
+        private static List<byte[]> BuildPackAssemblyRawBytesList(string mainAppAsmPath, string mainAsmName, BuildTargetGroup targetGroup, BuildTarget target)
         {
             var list = new List<byte[]>();
 
@@ -405,8 +351,137 @@ namespace Liminal.SDK.Editor.Build
             {
                 list.Add(File.ReadAllBytes(plugin.assetPath));
             }
-            
+
+            // Pre-existing asmdefs in the project (e.g. XR Interaction Toolkit samples) compile into their own
+            // DLLs alongside the main app DLL. Pack those too so referenced types resolve at runtime.
+            foreach (var asmdefDllPath in GetIncludedAsmdefAssemblies(mainAsmName))
+            {
+                Debug.LogFormat("[Liminal.Build] Packing asmdef-produced assembly: {0}", asmdefDllPath);
+                list.Add(File.ReadAllBytes(asmdefDllPath));
+            }
+
             return list;
+        }
+
+        /// <summary>
+        /// Locates the limapp's root-asmdef-compiled DLL in the Unity build cache, copies it to
+        /// <paramref name="outputBytesPath"/>, and runs Cecil post-processing in place.
+        /// </summary>
+        /// <remarks>
+        /// Replaces the legacy Roslyn <c>AppAssemblyBuilder</c> path. Requires <c>Liminal &gt; Setup Limapp Build</c>
+        /// to have been run so that an asmdef named <paramref name="asmName"/> exists at the project root.
+        /// </remarks>
+        private static void EnsureAsmdefCompiledAssembly(string asmName, string outputBytesPath)
+        {
+            if (EditorApplication.isCompiling)
+                throw new Exception("[Liminal.Build] Scripts are still compiling. Wait for compilation to finish before building.");
+
+            // Always run a fresh player compile so the packed DLL reflects the latest source.
+            // Editor recompiles only update Library/ScriptAssemblies (with UNITY_EDITOR defined);
+            // Library/Bee/PlayerScriptAssemblies is otherwise only refreshed by a full player build,
+            // so trusting whatever's cached there would silently ship stale code.
+            var sourceDll = EnsurePlayerDll(asmName);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(outputBytesPath));
+            File.Copy(sourceDll, outputBytesPath, overwrite: true);
+
+            new AppAssemblyPostProcessor().PostProcess(outputBytesPath);
+        }
+
+        /// <summary>
+        /// Force-compiles the player DLL and copies it into Unity's player-assemblies cache
+        /// (<c>Library/Bee/PlayerScriptAssemblies/&lt;asmName&gt;.dll</c>) so that subsequent
+        /// <see cref="Build"/> calls can pick it up via 'Use Current' without recompiling.
+        /// Surfaced as the inline 'Compile' fix on the Build Settings validation panel.
+        /// </summary>
+        public static string EnsurePlayerDll(string asmName)
+        {
+            try
+            {
+                var compiledPath = CompilePlayerScripts(asmName);
+                var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                var beeDir = Path.Combine(projectRoot, "Library/Bee/PlayerScriptAssemblies");
+                Directory.CreateDirectory(beeDir);
+                var beePath = Path.Combine(beeDir, asmName + ".dll");
+                File.Copy(compiledPath, beePath, overwrite: true);
+                Debug.LogFormat("[Liminal.Build] Player DLL ready at {0}", beePath);
+                return beePath;
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
+        }
+
+        /// <summary>
+        /// Force-compiles all player scripts for the active build target into a temp folder and
+        /// returns the path to <paramref name="asmName"/>.dll within it.
+        /// </summary>
+        private static string CompilePlayerScripts(string asmName)
+        {
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var outputFolder = Path.Combine(projectRoot, "Temp/LimappPlayerCompile");
+            if (Directory.Exists(outputFolder))
+                Directory.Delete(outputFolder, recursive: true);
+            Directory.CreateDirectory(outputFolder);
+
+            var target = EditorUserBuildSettings.activeBuildTarget;
+            var settings = new ScriptCompilationSettings
+            {
+                target = target,
+                group = BuildPipeline.GetBuildTargetGroup(target),
+                options = ScriptCompilationOptions.None,
+            };
+
+            Debug.LogFormat("[Liminal.Build] Compiling player scripts ({0}) to '{1}'...", target, outputFolder);
+            UpdateProgressBar("Building Limapp", "Compiling player scripts", 0.05F);
+            PlayerBuildInterface.CompilePlayerScripts(settings, outputFolder);
+
+            var dllPath = Path.Combine(outputFolder, asmName + ".dll");
+            if (!File.Exists(dllPath))
+            {
+                throw new Exception(
+                    $"[Liminal.Build] Player compile finished but '{asmName}.dll' was not produced at '{dllPath}'. " +
+                    "Check that an asmdef named '" + asmName + "' exists and includes the active build platform. " +
+                    "If the asmdef is missing, run 'Liminal > Setup Limapp Build'.");
+            }
+            return dllPath;
+        }
+
+        /// <summary>
+        /// Enumerates DLL paths produced by asmdefs in the player build, excluding the main app asmdef and
+        /// anything under the Liminal SDK or the Packages folder.
+        /// </summary>
+        private static IEnumerable<string> GetIncludedAsmdefAssemblies(string mainAsmName)
+        {
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            foreach (var asm in CompilationPipeline.GetAssemblies(AssembliesType.Player))
+            {
+                if (string.Equals(asm.name, mainAsmName, StringComparison.Ordinal))
+                    continue;
+
+                var firstSource = asm.sourceFiles?.FirstOrDefault();
+                if (string.IsNullOrEmpty(firstSource))
+                    continue;
+
+                var normalised = firstSource.Replace('\\', '/');
+                if (normalised.IndexOf("Assets/Liminal/", StringComparison.OrdinalIgnoreCase) >= 0)
+                    continue;
+                if (normalised.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var outputPath = asm.outputPath;
+                if (string.IsNullOrEmpty(outputPath))
+                    continue;
+
+                if (!Path.IsPathRooted(outputPath))
+                    outputPath = Path.Combine(projectRoot, outputPath);
+
+                if (!File.Exists(outputPath))
+                    continue;
+
+                yield return outputPath;
+            }
         }
 
         public static AppManifest ReadAppManifest()
