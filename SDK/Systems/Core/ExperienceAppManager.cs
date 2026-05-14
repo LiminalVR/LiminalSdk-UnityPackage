@@ -5,6 +5,7 @@ using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.SceneManagement;
+using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Inputs;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
@@ -17,13 +18,15 @@ namespace Liminal.SDK.V2
     /// </summary>
     public class ExperienceAppManager : MonoBehaviour
     {
+        public static ExperienceAppManager PlatformInstance;
+        public static ExperienceAppManager LimappInstance;
+
+        public bool IsLimapp;
+
         // This is the old experience content holder. We want EVERYTHING off so nothing looks for VRAvatar etc until it is all set up.
         [Header("Auto Find")]
-        public GameObject ExperienceApp;
+        public ExperienceApp ExperienceApp;
         public VRAvatar VRAvatar;
-
-        public XROrigin XROrigin;
-        public GameObject XRRig;
 
         public bool RunOnStart = false;
 
@@ -31,26 +34,60 @@ namespace Liminal.SDK.V2
         public VRAvatarHand AvatarRightHand;
         public VRAvatarHead AvatarHead;
 
-        [Header("Assign These")]
-        public Transform RigRightHand;
-        public Transform RigLeftHand;
-        public Transform CameraOffset;
+        public LiminalControllerManager ControllerManager => SpawnedRig != null ? SpawnedRig.GetComponentInChildren<LiminalControllerManager>(true) : null;
 
-        public TrackedPoseDriver OriginalTrackedPoseDriver;
+        [Header("Rig")]
 
-        public XRRayInteractor RightControllerRayInteractor;
-        public XRRayInteractor LeftControllerRayInteractor;
+        public XROrigin XROrigin => SpawnedRig != null ? SpawnedRig.XROrigin : null;
+        public GameObject XRRig => SpawnedRig != null ? SpawnedRig.XRRig : null;
+        public Transform RigRightHand => SpawnedRig != null ? SpawnedRig.RigRightHand : null;
+        public Transform RigLeftHand => SpawnedRig != null ? SpawnedRig.RigLeftHand : null;
+        public Transform CameraOffset => SpawnedRig != null ? SpawnedRig.CameraOffset : null;
+        public TrackedPoseDriver OriginalTrackedPoseDriver => SpawnedRig != null ? SpawnedRig.OriginalTrackedPoseDriver : null;
+        public XRRayInteractor RightControllerRayInteractor => SpawnedRig != null ? SpawnedRig.RightControllerRayInteractor : null;
+        public XRRayInteractor LeftControllerRayInteractor => SpawnedRig != null ? SpawnedRig.LeftControllerRayInteractor : null;
 
-        public LiminalControllerManager ControllerManager;
+        [Header("Dynamic Rig")]
+        [Tooltip("If assigned, SpawnRig() will Instantiate this prefab and assign its XRRigReferences. Leave null to use a rig already wired into RigReferences via the inspector.")]
+        [SerializeField] private XRRigReferences _xrRigPrefab;
+        
+        public XRRigReferences SpawnedRig { get; private set; }
+
+        [ContextMenu("Spawn Rig")]
+        public XRRigReferences SpawnRig()
+        {
+            if(!IsLimapp)
+                PlatformInstance = this;
+
+            if (SpawnedRig != null)
+                return SpawnedRig;
+
+            if (_xrRigPrefab == null)
+            {
+                Debug.LogWarning("[ExperienceAppManager] SpawnRig called but no XR Rig prefab is assigned. Falling back to the rig already wired into RigReferences.", this);
+                return null;
+            }
+
+            SpawnedRig = Instantiate(_xrRigPrefab, transform);
+            if (SpawnedRig == null)
+                Debug.LogError("[ExperienceAppManager] Spawned rig prefab has no XRRigReferences component on its root.", SpawnedRig);
+
+            RegisterIntearctors();
+
+            return SpawnedRig;
+        }
 
         [ContextMenu("1 - Find References")]
         public void FindReferences()
         {
             // Picks up MyExperienceApp subclasses too — fall back to name lookup if no component is present.
-            var oldExperienceApp = FindAnyObjectByType<ExperienceApp>(FindObjectsInactive.Include);
-            ExperienceApp = oldExperienceApp != null
-                ? oldExperienceApp.gameObject
-                : GameObjectUtils.FindInactiveByName("[ExperienceApp]");
+            ExperienceApp = FindAnyObjectByType<ExperienceApp>(FindObjectsInactive.Include);
+            if (ExperienceApp == null)
+            {
+                var fallbackGo = GameObjectUtils.FindInactiveByName("[ExperienceApp]");
+                if (fallbackGo != null)
+                    ExperienceApp = fallbackGo.GetComponent<ExperienceApp>();
+            }
 
             if (ExperienceApp == null)
             {
@@ -117,6 +154,9 @@ namespace Liminal.SDK.V2
 
         private void Awake()
         {
+            if(IsLimapp)
+                LimappInstance = this;
+                
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
 
@@ -124,13 +164,36 @@ namespace Liminal.SDK.V2
                 Setup();
         }
 
+        public void RegisterIntearctors()
+        {
+            if (SpawnedRig == null)
+            {
+                Debug.LogWarning("[ExperienceAppManager] RegisterIntearctors called with no SpawnedRig.", this);
+                return;
+            }
+
+            var manager = SpawnedRig.GetComponentInChildren<XRInteractionManager>(true);
+            if (manager == null)
+            {
+                Debug.LogWarning("[ExperienceAppManager] No XRInteractionManager found on the spawned rig — interactors won't be registered.", SpawnedRig);
+                return;
+            }
+
+            var interactors = SpawnedRig.GetComponentsInChildren<IXRInteractor>(true);
+            for (int i = 0; i < interactors.Length; i++)
+                manager.RegisterInteractor(interactors[i]);
+        }
+
         [ContextMenu("Setup Test")]
         public void Setup()
         {
+            SpawnRig();
+
             if (ControllerManager != null)
                 ControllerManager.ApplyDefaults();
 
             SceneSetup();
+
             DeviceManager.Initialize(new UnityXRDevice());
 
             if(ExperienceApp != null)
@@ -139,6 +202,9 @@ namespace Liminal.SDK.V2
 
         private void LateUpdate()
         {
+            if (AvatarRightHand == null || SpawnedRig == null)
+                return;
+
             // Update and Sync controller positions.
             AvatarRightHand.transform.position = RigRightHand.transform.position;
             AvatarRightHand.transform.rotation = RigRightHand.transform.rotation;

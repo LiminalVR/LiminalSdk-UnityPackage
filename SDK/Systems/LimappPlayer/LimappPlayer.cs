@@ -65,11 +65,6 @@ namespace App.core
                 if(SceneContainer != null)
                     SceneContainer.SetActive(true);
 
-                // 1 - Try set up avatar only
-                // Seems like we need to wait one second before setting up avatar again?
-                yield return new WaitForSecondsRealtime(1);
-                VRDevice.Device.SetupAvatar(Avatar);
-
                 GraphicsSettings.defaultRenderPipeline = null;
                 QualitySettings.renderPipeline = null;
             }
@@ -104,6 +99,8 @@ namespace App.core
 
                 yield return new WaitUntil(() => limapp.ExperienceApp != null);
                 ApplySpecialCases(limapp, config);
+
+                limapp.SetState(ELimappState.Running);
             }
         }
 
@@ -157,6 +154,8 @@ namespace App.core
 
             _currentLimapp.State = state;
         }
+
+        public LimappBase CurrentLimapp => _currentLimapp;
     }
 }
 

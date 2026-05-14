@@ -107,17 +107,22 @@ namespace Liminal.SDK.XR
 		public override Vector2 GetAxis2D(string axis)
         {
             var action = GetInputAction(axis);
-            return action.ReadValue<Vector2>();
+            return action != null ? action.ReadValue<Vector2>() : Vector2.zero;
 		}
 
-		public override bool GetButton(string button) 
-            => GetInputAction(button).IsPressed();
-		public override bool GetButtonDown(string button) 
-            => GetInputAction(button).WasPressedThisFrame();
-		public override bool GetButtonUp(string button) 
-            => GetInputAction(button).WasReleasedThisFrame();
+		// Null-coalesce guards the window between rig despawn and respawn, where XRInputReferences.Instance
+		// briefly points at a destroyed prefab and the input action chain is unresolvable.
+		public override bool GetButton(string button)
+            => GetInputAction(button)?.IsPressed() ?? false;
+		public override bool GetButtonDown(string button)
+            => GetInputAction(button)?.WasPressedThisFrame() ?? false;
+		public override bool GetButtonUp(string button)
+            => GetInputAction(button)?.WasReleasedThisFrame() ?? false;
 
-		public XRInputControllerReferences InputRefs => XRInputReferences.Instance.GetHandInputReferences(Hand);
+		public XRInputControllerReferences InputRefs =>
+			XRInputReferences.Instance != null
+				? XRInputReferences.Instance.GetHandInputReferences(Hand)
+				: null;
 
         public void Bind(ActionBasedController controller, IVRAvatarHand avatarHand, LaserPointerVisual pointer)
         {
@@ -179,7 +184,7 @@ namespace Liminal.SDK.XR
 		/// <returns></returns>
 		public InputAction GetInputAction(string name)
         {
-            return InputRefs.GetInputAction(name);
+            return InputRefs?.GetInputAction(name);
         }
 	}
 }

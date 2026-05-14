@@ -18,11 +18,12 @@ namespace Liminal.SDK.V2
     public class LiminalControllerManager : MonoBehaviour
     {
         public ExperienceAppManager ExperienceAppManager;
+        public XRRigReferences XRRigReferences => ExperienceAppManager != null ? ExperienceAppManager.SpawnedRig : null;
 
         // Default controller meshes (e.g. Quest 3 controller models).
         [Header("Default Controller Meshes")]
-        public GameObject DefaultLeftHandMesh;
-        public GameObject DefaultRightHandMesh;
+        public GameObject DefaultLeftHandMesh => XRRigReferences.RigLeftHandVisual.gameObject;
+        public GameObject DefaultRightHandMesh => XRRigReferences.RigRightHandVisual.gameObject;
 
         // Custom meshes already attached to the avatar — wand, weapon, custom hand, etc.
         [Header("Custom Avatar Meshes")]

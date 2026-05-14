@@ -10,7 +10,6 @@ namespace Liminal.SDK.XR
     /// </summary>
     public class XRInputReferences : MonoBehaviour
     {
-        public XROrigin XROrigin;
         public XRInputControllerReferences LeftControllerReferences;
         public XRInputControllerReferences RightControllerReferences;
 
@@ -19,6 +18,21 @@ namespace Liminal.SDK.XR
         private void Awake()
         {
             Instance = this;
+        }
+
+        // OnEnable + OnDestroy keep Instance in sync with rig spawn/despawn. Without this, the
+        // limapp rig steals Instance on Awake, then its destruction leaves Instance pointing at a
+        // fake-null reference until the next rig spawns — UnityXRController.GetButton* dereference
+        // it during that gap and throw.
+        private void OnEnable()
+        {
+            Instance = this;
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this)
+                Instance = null;
         }
 
         public XRInputControllerReferences GetHandInputReferences(VRInputDeviceHand handType)

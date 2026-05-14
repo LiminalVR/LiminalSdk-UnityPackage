@@ -170,6 +170,8 @@ namespace App.Core
                 yield return SceneManagerLoadScene();
             }
 
+            ExperienceApp = GetExperienceApp();
+
             LoadState = ELimappLoadState.NotInProgress;
             // is this called multiple times?
             IEnumerator SceneManagerLoadScene()
@@ -268,15 +270,6 @@ namespace App.Core
             if (ExperienceApp == null)
                 Debug.Log("Experience app is null");
 
-            try
-            {
-                ExperienceAppReflectionCache.ShutdownMethod.Invoke(GetExperienceApp(), null);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogException(ex);
-            }
-
             ExperienceApp = null;
             Assemblies = null;
 
@@ -286,7 +279,6 @@ namespace App.Core
             ExperienceAppReflectionCache.IsEndingField.SetValue(null, false);
 
             yield return Resources.UnloadUnusedAssets();
-            _avatarBefore.SetActive(true);
             GC.Collect();
 
             Debug.Log("Unloaded...");

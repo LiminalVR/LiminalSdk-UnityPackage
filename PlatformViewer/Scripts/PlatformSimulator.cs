@@ -12,6 +12,9 @@ using Newtonsoft.Json;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.UI;
 using Experience = App.Shared.Experience;
+using Liminal.SDK.V2;
+using Liminal.SDK.VR.Avatars;
+using App.PlatformViewer;
 
 namespace App.Simulator
 {
@@ -31,7 +34,9 @@ namespace App.Simulator
 
         public LimappPlayer LimappPlayer;
 
-        public GameObject[] TestDeletes;
+        public ExperienceAppManager ExperienceAppManager;
+
+        public ExperienceSettingsMenu ExperienceSettingsMenu;
 
 
         IEnumerator Start()
@@ -44,10 +49,14 @@ namespace App.Simulator
             yield return null;
         }
 
+        public VRAvatar PlatformAvatar;
+
         public void CleanPreviousAvatar()
         {
-            for (int i = 0; i < TestDeletes.Length; i++)
-                Destroy(TestDeletes[i]);
+            ExperienceSettingsMenu.CachePlatformAvatarHeadTransform();
+
+            PlatformAvatar.gameObject.SetActive(false);
+            ExperienceAppManager.gameObject.SetActive(false);
         }
 
         private void LogStreamingAssetCheck(int experienceId)
@@ -101,40 +110,8 @@ namespace App.Simulator
         /// </summary>
         private IEnumerator LoadLimapp(int experienceId)
         {
-            ResetXRInteractionState();
             yield return null; // let Destroy() settle before the limapp scene activates
             yield return LimappPlayer.Play(new LimappBase(experienceId));
-        }
-
-        private static void ResetXRInteractionState()
-        {
-            // Include inactive — stale UI modules / managers can hide on disabled GameObjects in the
-            // simulator's avatar hierarchy and still influence input wiring.
-            var managers = FindObjectsByType<XRInteractionManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            foreach (var m in managers)
-            {
-                Debug.Log($"[PlatformSimulator] Destroying simulator-side XRInteractionManager '{m.name}' before limapp load.");
-                Destroy(m);
-            }
-
-            // XRUIInputModule on the simulator avatar's EventSystem grabs the limapp's rays for
-            // UI hit-testing and bends the visual to whatever UI element it intersects. Strip it
-            // so the limapp's own UI module (if any) becomes the only one driving rays.
-            var uiModules = FindObjectsByType<XRUIInputModule>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            foreach (var module in uiModules)
-            {
-                Debug.Log($"[PlatformSimulator] Destroying simulator-side XRUIInputModule on '{module.gameObject.name}' before limapp load.");
-                Destroy(module);
-            }
-
-            // Defensive: clear XRI's static waitlists in case any of the simulator's interactors
-            // re-added themselves after their manager went away. Reflection because the fields are private.
-            var t = typeof(XRInteractionManager);
-            foreach (var fieldName in new[] { "s_WaitlistGroups", "s_WaitlistInteractors", "s_WaitlistInteractables", "s_WaitlistSnapVolumes" })
-            {
-                var field = t.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
-                field?.SetValue(null, null);
-            }
         }
 
         private IEnumerator GetExperiences()
