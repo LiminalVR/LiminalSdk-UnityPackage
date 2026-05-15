@@ -233,7 +233,13 @@ namespace Liminal.SDK.Editor.Build
                 var zipFile = new FileInfo(zipPath);
                 Debug.LogFormat("[Liminal.Build] Build completed in {0:0.00}s. Size: {1:0.00}mb, Output: {2}", sw.Elapsed.TotalSeconds, BytesToMb(zipFile.Length), zipPath);
 
-                EditorUtility.RevealInFinder(zipPath);
+                // Auto-stage to configured deploy targets. Must run before RevealInFinder/ExitGUI in
+                // the finally so the ExitGUIException doesn't unwind past it.
+                if (LiminalUserSettings.AutoCopyAfterBuild)
+                    SettingsWindow.CopyLatestBuildToAllConfiguredTargets();
+
+                if (LiminalUserSettings.RevealInFinderAfterBuild)
+                    EditorUtility.RevealInFinder(zipPath);
             }
             catch (Exception ex)
             {

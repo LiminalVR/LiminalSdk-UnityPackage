@@ -182,6 +182,20 @@ namespace Liminal.SDK.Build
                 "Deploy",
                 "Copies the latest build into StreamingAssets/Limapps/<Platform>/<id>/. Both Android and Standalone are copied — Standalone falls back to Android when no Standalone build exists.");
 
+            GUILayout.BeginVertical(EditorStyles.helpBox);
+            {
+                LiminalUserSettings.AutoCopyAfterBuild = EditorGUILayout.ToggleLeft(
+                    new GUIContent("Auto Copy after Build", "Run 'Copy Latest Build' to all configured targets when a build finishes."),
+                    LiminalUserSettings.AutoCopyAfterBuild);
+
+                LiminalUserSettings.RevealInFinderAfterBuild = EditorGUILayout.ToggleLeft(
+                    new GUIContent("Reveal in Finder after Build", "Open the build output folder when a build finishes."),
+                    LiminalUserSettings.RevealInFinderAfterBuild);
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.Space(6);
+
             DrawDeployTarget(
                 title: "To SDK",
                 basePath: LiminalUserSettings.LiminalSdkPath,
@@ -346,7 +360,56 @@ namespace Liminal.SDK.Build
             return Path.Combine(platformAppPath, "Assets", "StreamingAssets", "Limapps");
         }
 
-        private static void CopyLatestBuildTo(string streamingAssetsRoot, string dllFolder, BuildWindowConfig config)
+        /// <summary>
+        /// Runs Copy Latest Build for every deploy target whose base path is currently valid.
+        /// Used by the Build button so a successful build is immediately staged into the configured
+        /// destinations. Silent when no build output exists yet (e.g. the build was for a single
+        /// platform) — exceptions still surface via the standard error dialog.
+        /// </summary>
+        public static void CopyLatestBuildToAllConfiguredTargets()
+        {
+            // Settings tab auto-populates this on first draw; if the user goes straight from a fresh
+            // install to the Build button, it's still empty here. Resolve once so the SDK target
+            // works without requiring a Settings-tab visit first.
+            if (string.IsNullOrEmpty(LiminalUserSettings.LiminalSdkPath))
+                LiminalUserSettings.LiminalSdkPath = ResolveSdkPath();
+
+            var sdkPath = LiminalUserSettings.LiminalSdkPath;
+            Debug.Log($"[Liminal.Deploy] Auto-copy after build. SDK path='{sdkPath}', PlatformApp path='{LiminalUserSettings.PlatformAppProjectPath}'");
+
+            if (!string.IsNullOrEmpty(sdkPath) && Directory.Exists(sdkPath))
+            {
+                var streamingRoot = ResolveSdkStreamingAssetsRoot(sdkPath);
+                Debug.Log($"[Liminal.Deploy] Copying to SDK target → {streamingRoot}");
+                CopyLatestBuildTo(
+                    streamingRoot,
+                    LiminalUserSettings.SdkDllDestinationFolder,
+                    config: null,
+                    silentIfMissing: true);
+            }
+            else
+            {
+                Debug.Log($"[Liminal.Deploy] Skipping SDK target — path empty or missing on disk.");
+            }
+
+            var platformAppPath = LiminalUserSettings.PlatformAppProjectPath;
+            if (!string.IsNullOrEmpty(platformAppPath) && Directory.Exists(platformAppPath))
+            {
+                var streamingRoot = ResolvePlatformAppStreamingAssetsRoot(platformAppPath);
+                Debug.Log($"[Liminal.Deploy] Copying to Platform App target → {streamingRoot}");
+                CopyLatestBuildTo(
+                    streamingRoot,
+                    LiminalUserSettings.PlatformAppDllDestinationFolder,
+                    config: null,
+                    silentIfMissing: true);
+            }
+            else
+            {
+                Debug.Log($"[Liminal.Deploy] Skipping Platform App target — path empty or missing on disk.");
+            }
+        }
+
+        private static void CopyLatestBuildTo(string streamingAssetsRoot, string dllFolder, BuildWindowConfig config, bool silentIfMissing = false)
         {
             try
             {
@@ -362,6 +425,12 @@ namespace Liminal.SDK.Build
 
                 if (!hasAndroid && !hasStandalone)
                 {
+                    if (silentIfMissing)
+                    {
+                        Debug.LogWarning($"[Liminal.Deploy] No build output found at {androidSrc} or {standaloneSrc} — skipping copy.");
+                        return;
+                    }
+
                     EditorUtility.DisplayDialog(
                         "Copy Latest Build",
                         $"No build was found for either platform:\n{androidSrc}\n{standaloneSrc}\n\nRun the Build tab first.",

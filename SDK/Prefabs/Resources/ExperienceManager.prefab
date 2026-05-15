@@ -46,13 +46,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8be9fd1577bb8bc4f82c4cdcca90937b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Liminal.SDK.V2.ExperienceAppManager
-  IsLimapp: 0
+  IsLimapp: 1
   ExperienceApp: {fileID: 0}
   VRAvatar: {fileID: 0}
   RunOnStart: 1
   AvatarLeftHand: {fileID: 0}
   AvatarRightHand: {fileID: 0}
   AvatarHead: {fileID: 0}
+  ControllerManager: {fileID: 0}
   _xrRigPrefab: {fileID: 7992416613597991581, guid: 1fa0a5031d906cd49a3270ec93cfb474,
     type: 3}
 --- !u!114 &8812467397329442938

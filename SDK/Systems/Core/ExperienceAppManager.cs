@@ -34,7 +34,7 @@ namespace Liminal.SDK.V2
         public VRAvatarHand AvatarRightHand;
         public VRAvatarHead AvatarHead;
 
-        public LiminalControllerManager ControllerManager => SpawnedRig != null ? SpawnedRig.GetComponentInChildren<LiminalControllerManager>(true) : null;
+        public LiminalControllerManager ControllerManager;
 
         [Header("Rig")]
 
@@ -80,8 +80,12 @@ namespace Liminal.SDK.V2
         [ContextMenu("1 - Find References")]
         public void FindReferences()
         {
+            ControllerManager = GetComponentInChildren<LiminalControllerManager>(true);
+
             // Picks up MyExperienceApp subclasses too — fall back to name lookup if no component is present.
-            ExperienceApp = FindAnyObjectByType<ExperienceApp>(FindObjectsInactive.Include);
+            if (ExperienceApp == null)
+                ExperienceApp = FindAnyObjectByType<ExperienceApp>(FindObjectsInactive.Include);
+
             if (ExperienceApp == null)
             {
                 var fallbackGo = GameObjectUtils.FindInactiveByName("[ExperienceApp]");
@@ -94,7 +98,13 @@ namespace Liminal.SDK.V2
                 Debug.LogWarning("[ExperienceAppManager] Could not find an ExperienceApp (component or [ExperienceApp] GameObject).", this);
             }
 
-            VRAvatar = FindAnyObjectByType<VRAvatar>(FindObjectsInactive.Include);
+            if(VRAvatar == null){
+                if(ExperienceApp != null)
+                VRAvatar = ExperienceApp.GetComponentInChildren<VRAvatar>(true);
+
+                if(VRAvatar == null)
+                    VRAvatar = FindAnyObjectByType<VRAvatar>(FindObjectsInactive.Include);
+            }
 
             AvatarLeftHand = VRAvatar.SecondaryHand as VRAvatarHand;
             AvatarRightHand = VRAvatar.PrimaryHand as VRAvatarHand;
@@ -106,8 +116,6 @@ namespace Liminal.SDK.V2
                 
             if(ControllerManager.AvatarCustomRightHandMesh == null)
                 ControllerManager.AvatarCustomRightHandMesh = AvatarRightHand.Anchor.gameObject;
-
-            SceneSetup();
         }
 
         [ContextMenu("2 - Scene Setup")]
@@ -187,12 +195,12 @@ namespace Liminal.SDK.V2
         [ContextMenu("Setup Test")]
         public void Setup()
         {
+            FindReferences();
             SpawnRig();
+            SceneSetup();
 
             if (ControllerManager != null)
                 ControllerManager.ApplyDefaults();
-
-            SceneSetup();
 
             DeviceManager.Initialize(new UnityXRDevice());
 

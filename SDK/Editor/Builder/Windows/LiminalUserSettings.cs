@@ -34,5 +34,17 @@ namespace Liminal.SDK.Build
             get => EditorPrefs.GetString(KeyPrefix + nameof(PlatformAppDllDestinationFolder), string.Empty);
             set => EditorPrefs.SetString(KeyPrefix + nameof(PlatformAppDllDestinationFolder), value ?? string.Empty);
         }
+
+        public static bool AutoCopyAfterBuild
+        {
+            get => EditorPrefs.GetBool(KeyPrefix + nameof(AutoCopyAfterBuild), true);
+            set => EditorPrefs.SetBool(KeyPrefix + nameof(AutoCopyAfterBuild), value);
+        }
+
+        public static bool RevealInFinderAfterBuild
+        {
+            get => EditorPrefs.GetBool(KeyPrefix + nameof(RevealInFinderAfterBuild), false);
+            set => EditorPrefs.SetBool(KeyPrefix + nameof(RevealInFinderAfterBuild), value);
+        }
     }
 }

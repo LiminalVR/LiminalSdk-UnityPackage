@@ -240,7 +240,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 018fb8d51954c04419676909cb7b7518, type: 3}
   m_Name: 
   m_EditorClassIdentifier: LiminalSdk::Liminal.SDK.V2.XRRigReferences
-  ControllerManager: {fileID: 0}
   XRUIInputModule: {fileID: 2769989358620258802}
   TrackedDevicePhysicsRaycaster: {fileID: 7890844216839512717}
   XROrigin: {fileID: 1658718684565006140}
@@ -248,8 +247,8 @@ MonoBehaviour:
   RigRightHand: {fileID: 531173305957736289}
   RigLeftHand: {fileID: 531173306502881152}
   CameraOffset: {fileID: 531173305833726915}
-  RigRightHandVisual: {fileID: 0}
-  RigLeftHandVisual: {fileID: 0}
+  RigRightHandVisual: {fileID: 6757339819396019126}
+  RigLeftHandVisual: {fileID: 8305837217348940541}
   OriginalTrackedPoseDriver: {fileID: 5845729170741126147}
   RightControllerRayInteractor: {fileID: 986666774606691299}
   LeftControllerRayInteractor: {fileID: 2321335889376603301}
@@ -544,6 +543,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c2fadf230d1919748a9aa21d40f74619, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!4 &6757339819396019126 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6528530117482412838, guid: f6336ac4ac8b4d34bc5072418cdc62a0,
+    type: 3}
+  m_PrefabInstance: {fileID: 531173306436012176}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &8305837217348940541 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8366379412631108205, guid: f6336ac4ac8b4d34bc5072418cdc62a0,
+    type: 3}
+  m_PrefabInstance: {fileID: 531173306436012176}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &5162941405529581450
 PrefabInstance:
   m_ObjectHideFlags: 0
