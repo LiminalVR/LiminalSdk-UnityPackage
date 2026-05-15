@@ -173,25 +173,25 @@ MonoBehaviour:
   m_AllowHoverHapticsWhileSelecting: 0
   m_LineType: 0
   m_BlendVisualLinePoints: 1
-  m_MaxRaycastDistance: 10
+  m_MaxRaycastDistance: 20
   m_RayOriginTransform: {fileID: 0}
   m_ReferenceFrame: {fileID: 0}
   m_Velocity: 12
   m_Acceleration: 9.8
   m_AdditionalGroundHeight: 0.1
   m_AdditionalFlightTime: 0.5
-  m_EndPointDistance: 30
-  m_EndPointHeight: -10
-  m_ControlPointDistance: 10
-  m_ControlPointHeight: 5
-  m_SampleFrequency: 60
+  m_EndPointDistance: 10
+  m_EndPointHeight: 0
+  m_ControlPointDistance: 5
+  m_ControlPointHeight: 0
+  m_SampleFrequency: 5
   m_HitDetectionType: 2
   m_SphereCastRadius: 0.0125
   m_ConeCastAngle: 3
   m_LiveConeCastDebugVisuals: 0
   m_RaycastMask:
     serializedVersion: 2
-    m_Bits: 131379
+    m_Bits: 4294967295
   m_RaycastTriggerInteraction: 1
   m_RaycastSnapVolumeInteraction: 1
   m_HitClosestOnly: 0
@@ -388,7 +388,7 @@ LineRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10306, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: a6329ec80f51d6049a5d00d86224003b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -491,9 +491,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e988983f96fe1dd48800bcdfc82f23e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_LineWidth: 0.005
+  m_LineWidth: 0.002
   m_OverrideInteractorLineLength: 1
-  m_LineLength: 10
+  m_LineLength: 20
   m_AutoAdjustLineLength: 1
   m_MinLineLength: 0.5
   m_UseDistanceToHitAsMaxLineLength: 1
@@ -507,7 +507,7 @@ MonoBehaviour:
       value: 1
       inSlope: 0
       outSlope: 0
-      tangentMode: 0
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0
@@ -516,7 +516,7 @@ MonoBehaviour:
       value: 1
       inSlope: 0
       outSlope: 0
-      tangentMode: 0
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0
@@ -526,9 +526,9 @@ MonoBehaviour:
   m_SetLineColorGradient: 1
   m_ValidColorGradient:
     serializedVersion: 2
-    key0: {r: 1, g: 1, b: 1, a: 1}
-    key1: {r: 1, g: 1, b: 1, a: 0}
-    key2: {r: 0, g: 0, b: 0, a: 0}
+    key0: {r: 1, g: 1, b: 1, a: 0}
+    key1: {r: 1, g: 1, b: 1, a: 0.39215687}
+    key2: {r: 0, g: 0, b: 0, a: 0.39215687}
     key3: {r: 0, g: 0, b: 0, a: 0}
     key4: {r: 0, g: 0, b: 0, a: 0}
     key5: {r: 0, g: 0, b: 0, a: 0}
@@ -543,9 +543,9 @@ MonoBehaviour:
     ctime6: 0
     ctime7: 0
     atime0: 0
-    atime1: 65535
-    atime2: 0
-    atime3: 0
+    atime1: 7068
+    atime2: 53585
+    atime3: 65535
     atime4: 0
     atime5: 0
     atime6: 0
@@ -553,11 +553,11 @@ MonoBehaviour:
     m_Mode: 0
     m_ColorSpace: 0
     m_NumColorKeys: 2
-    m_NumAlphaKeys: 2
+    m_NumAlphaKeys: 4
   m_InvalidColorGradient:
     serializedVersion: 2
-    key0: {r: 0.63522005, g: 0.63522005, b: 0.63522005, a: 1}
-    key1: {r: 0.57861626, g: 0.57861626, b: 0.57861626, a: 0}
+    key0: {r: 1, g: 1, b: 1, a: 0.039215688}
+    key1: {r: 1, g: 1, b: 1, a: 0.13725491}
     key2: {r: 0, g: 0, b: 0, a: 0}
     key3: {r: 0, g: 0, b: 0, a: 0}
     key4: {r: 0, g: 0, b: 0, a: 0}
@@ -573,9 +573,9 @@ MonoBehaviour:
     ctime6: 0
     ctime7: 0
     atime0: 0
-    atime1: 65535
-    atime2: 0
-    atime3: 0
+    atime1: 3855
+    atime2: 65535
+    atime3: 65535
     atime4: 0
     atime5: 0
     atime6: 0
@@ -583,7 +583,7 @@ MonoBehaviour:
     m_Mode: 0
     m_ColorSpace: 0
     m_NumColorKeys: 2
-    m_NumAlphaKeys: 2
+    m_NumAlphaKeys: 3
   m_BlockedColorGradient:
     serializedVersion: 2
     key0: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
@@ -619,7 +619,7 @@ MonoBehaviour:
   m_FollowTightness: 10
   m_SnapThresholdDistance: 10
   m_Reticle: {fileID: 5723191472001143611}
-  m_BlockedReticle: {fileID: 0}
+  m_BlockedReticle: {fileID: 5723191472001143611}
   m_StopLineAtFirstRaycastHit: 1
   m_StopLineAtSelection: 1
   m_SnapEndpointIfAvailable: 1
