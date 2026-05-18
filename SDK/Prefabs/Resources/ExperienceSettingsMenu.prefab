@@ -524,6 +524,7 @@ MonoBehaviour:
   Mask:
     serializedVersion: 2
     m_Bits: 1024
+  FollowEyeCamera: {fileID: 0}
 --- !u!1 &7088183408132599502
 GameObject:
   m_ObjectHideFlags: 0
@@ -795,7 +796,7 @@ GameObject:
   - component: {fileID: 1818243388180688882}
   - component: {fileID: 8639921456743772562}
   - component: {fileID: 2312072592721122250}
-  - component: {fileID: 3934817275355307894}
+  - component: {fileID: 2466701247554026444}
   m_Layer: 10
   m_Name: Canvas
   m_TagString: Untagged
@@ -906,7 +907,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RaycastTriggerInteraction: 1
---- !u!114 &3934817275355307894
+--- !u!114 &2466701247554026444
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -915,13 +916,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 8320879335659237144}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 1376454914, guid: 376ad4116cf6ee3b0e519f90856ce74b, type: 3}
+  m_Script: {fileID: 11500000, guid: cecae732132b8824882bfb47d3bda03e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: App000000000296.dll::FollowCamera
+  m_EditorClassIdentifier: LiminalSdk::Liminal.SDK.V2.FollowCamera
   Camera: {fileID: 0}
   Distance: 5
   AngleThreshold: 6
   Timeout: 0
   SmoothTime: 5
   UseFixedHeight: 1
-  FixedHeight: 1.65
+  FixedHeight: 1.5

@@ -53,7 +53,7 @@ MonoBehaviour:
   AvatarLeftHand: {fileID: 0}
   AvatarRightHand: {fileID: 0}
   AvatarHead: {fileID: 0}
-  ControllerManager: {fileID: 0}
+  ControllerManager: {fileID: 7349652531421221469}
   _xrRigPrefab: {fileID: 7992416613597991581, guid: 1fa0a5031d906cd49a3270ec93cfb474,
     type: 3}
 --- !u!114 &8812467397329442938

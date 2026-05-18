@@ -43,6 +43,8 @@ namespace App.PlatformViewer
 
         public ExperienceApp ExperienceApp => LimappExperienceAppManager.ExperienceApp;
 
+        public FollowCamera FollowEyeCamera;
+
 
         private void Awake()
         {
@@ -73,6 +75,8 @@ namespace App.PlatformViewer
 
         public void ToggleState()
         {
+            FollowEyeCamera.AlignToCameraImmediately();
+            
             if (_isOpened)
                 Hide();
             else

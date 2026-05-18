@@ -50,6 +50,8 @@ namespace Liminal.SDK.V2
         [Header("Dynamic Rig")]
         [Tooltip("If assigned, SpawnRig() will Instantiate this prefab and assign its XRRigReferences. Leave null to use a rig already wired into RigReferences via the inspector.")]
         [SerializeField] private XRRigReferences _xrRigPrefab;
+
+        public XRRigReferences XRRigPrefab => _xrRigPrefab;
         
         public XRRigReferences SpawnedRig { get; private set; }
 
@@ -68,7 +70,10 @@ namespace Liminal.SDK.V2
                 return null;
             }
 
-            SpawnedRig = Instantiate(_xrRigPrefab, transform);
+            var rigToSpawn = PlatformInstance == null ? _xrRigPrefab : PlatformInstance.XRRigPrefab;
+            //rigToSpawn = _xrRigPrefab;
+
+            SpawnedRig = Instantiate(rigToSpawn, transform);
             if (SpawnedRig == null)
                 Debug.LogError("[ExperienceAppManager] Spawned rig prefab has no XRRigReferences component on its root.", SpawnedRig);
 
@@ -202,7 +207,8 @@ namespace Liminal.SDK.V2
             if (ControllerManager != null)
                 ControllerManager.ApplyDefaults();
 
-            DeviceManager.Initialize(new UnityXRDevice());
+            if(DeviceManager.Device == null)
+                DeviceManager.Initialize(new UnityXRDevice());
 
             if(ExperienceApp != null)
                 ExperienceApp.gameObject.SetActive(true);
