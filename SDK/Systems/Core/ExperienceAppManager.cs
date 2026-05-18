@@ -46,12 +46,6 @@ namespace Liminal.SDK.V2
         public TrackedPoseDriver OriginalTrackedPoseDriver => SpawnedRig != null ? SpawnedRig.OriginalTrackedPoseDriver : null;
         public XRRayInteractor RightControllerRayInteractor => SpawnedRig != null ? SpawnedRig.RightControllerRayInteractor : null;
         public XRRayInteractor LeftControllerRayInteractor => SpawnedRig != null ? SpawnedRig.LeftControllerRayInteractor : null;
-
-        [Header("Dynamic Rig")]
-        [Tooltip("If assigned, SpawnRig() will Instantiate this prefab and assign its XRRigReferences. Leave null to use a rig already wired into RigReferences via the inspector.")]
-        [SerializeField] private XRRigReferences _xrRigPrefab;
-
-        public XRRigReferences XRRigPrefab => _xrRigPrefab;
         
         public XRRigReferences SpawnedRig { get; private set; }
 
@@ -64,16 +58,15 @@ namespace Liminal.SDK.V2
             if (SpawnedRig != null)
                 return SpawnedRig;
 
-            if (_xrRigPrefab == null)
+            var rigPrefab = Resources.Load<GameObject>("XR_Rig")?.GetComponent<XRRigReferences>();
+
+            if (rigPrefab == null)
             {
-                Debug.LogWarning("[ExperienceAppManager] SpawnRig called but no XR Rig prefab is assigned. Falling back to the rig already wired into RigReferences.", this);
+                Debug.LogWarning("[ExperienceAppManager] SpawnRig called but no XR Rig prefab is assigned.", this);
                 return null;
             }
 
-            //var prefab = Resources.Load<GameObject>("XR_Rig").GetComponent<XRRigReferences>();
-            //SpawnedRig = Instantiate(_xrRigPrefab, transform);
-
-            SpawnedRig = Instantiate(Resources.Load<GameObject>("XR_Rig").GetComponent<XRRigReferences>(), transform);
+            SpawnedRig = Instantiate(rigPrefab, transform);
 
             if (SpawnedRig == null)
                 Debug.LogError("[ExperienceAppManager] Spawned rig prefab has no XRRigReferences component on its root.", SpawnedRig);
@@ -196,6 +189,57 @@ namespace Liminal.SDK.V2
             var interactors = SpawnedRig.GetComponentsInChildren<IXRInteractor>(true);
             for (int i = 0; i < interactors.Length; i++)
                 manager.RegisterInteractor(interactors[i]);
+        }
+
+        /// <summary>
+        /// Toggle this manager and its avatar on/off. Also re-enables the shared XRI InputActionAsset
+        /// (which gets Disable()d by the rig's InputActionManager on deactivation) and refreshes the
+        /// rig's ray interactors on activation — they don't fully re-init from a GameObject SetActive
+        /// cycle, leaving the laser line/reticle stale even though interactions still work.
+        /// </summary>
+        public void SetActive(bool state)
+        {
+            if (VRAvatar != null)
+                VRAvatar.gameObject.SetActive(state);
+            gameObject.SetActive(state);
+
+            EnsureXRInputActionsEnabled();
+
+            if (state && SpawnedRig != null)
+                RefreshRayInteractors(SpawnedRig);
+        }
+
+        public static void EnsureXRInputActionsEnabled()
+        {
+            var refs = XRInputReferences.Instance;
+            if (refs == null) return;
+
+            var ctrlRefs = refs.RightControllerReferences;
+            if (ctrlRefs == null) return;
+
+            var backRef = ctrlRefs.Back;
+            if (backRef == null) return;
+
+            var asset = backRef.action?.actionMap?.asset;
+            if (asset != null)
+                asset.Enable();
+        }
+
+        public static void RefreshRayInteractors(XRRigReferences rig)
+        {
+            if (rig == null) return;
+
+            if (rig.RightControllerRayInteractor != null)
+            {
+                rig.RightControllerRayInteractor.enabled = false;
+                rig.RightControllerRayInteractor.enabled = true;
+            }
+
+            if (rig.LeftControllerRayInteractor != null)
+            {
+                rig.LeftControllerRayInteractor.enabled = false;
+                rig.LeftControllerRayInteractor.enabled = true;
+            }
         }
 
         [ContextMenu("Setup Test")]

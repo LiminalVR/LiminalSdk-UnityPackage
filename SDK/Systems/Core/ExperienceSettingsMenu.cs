@@ -10,8 +10,6 @@ using Liminal.SDK.VR.Input;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using UnityEngine.XR.Interaction.Toolkit.Interactors;
-using UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals;
 using System.Collections;
 using Liminal.SDK.VR.Utils;
 
@@ -92,8 +90,8 @@ namespace App.PlatformViewer
 
             SetPlatformAvatarHeadTranformsToExperience();
 
-            SetExperienceAppManagerActive(LimappExperienceAppManager, false);
-            SetExperienceAppManagerActive(PlatformExperienceAppManager, true);
+            LimappExperienceAppManager.SetActive(false);
+            PlatformExperienceAppManager.SetActive(true);
             ApplyMenuMaskTo(PlatformExperienceAppManager != null ? PlatformExperienceAppManager.SpawnedRig : null);
             ExperienceApp.Pause();
         }
@@ -112,8 +110,8 @@ namespace App.PlatformViewer
             // its TrackedPoseDriver binds to an enabled action, then immediately sees the action
             // disabled by platform's OnDisable cascade — it enters a 'tracking lost' state and
             // holds the last pose even after we re-enable.
-            SetExperienceAppManagerActive(PlatformExperienceAppManager, false);
-            SetExperienceAppManagerActive(LimappExperienceAppManager, true);
+            PlatformExperienceAppManager.SetActive(false);
+            LimappExperienceAppManager.SetActive(true);
         }
 
         public Coroutine Exit()
@@ -128,7 +126,7 @@ namespace App.PlatformViewer
                 yield return LimappPlayer.Instance.End();
 
                 SetPlatformAvatarHeadTransformToCached();
-                SetExperienceAppManagerActive(PlatformExperienceAppManager, true);
+                PlatformExperienceAppManager.SetActive(true);
             }
         }
 
@@ -177,52 +175,6 @@ namespace App.PlatformViewer
                 rig.RightControllerRayInteractor.raycastMask = _cachedRightRayMask;
 
             _maskedRig = null;
-        }
-
-        private void SetExperienceAppManagerActive(ExperienceAppManager appManager, bool state)
-        {
-            appManager.VRAvatar.gameObject.SetActive(state);
-            appManager.gameObject.SetActive(state);
-
-            // Deactivating the manager runs InputActionManager.OnDisable on its rig, which
-            // Disable()s the shared XRI InputActionAsset — killing TrackedPoseDriver pose input
-            // (head locks on device) and other action reads. Force the asset back on after every
-            // toggle. The editor's XR Device Simulator drives transforms directly so this never
-            // showed up in-editor.
-            EnsureXRInputActionsEnabled();
-
-            // XRInteractorLineVisual doesn't fully re-initialise from a GameObject SetActive cycle —
-            // raycasts still work but the line + reticle stay in whatever state they were in at
-            // disable time. Toggling component.enabled forces OnDisable/OnEnable synchronously and
-            // resets the visual.
-            if (state && appManager.SpawnedRig != null)
-                RefreshLineVisuals(appManager.SpawnedRig);
-        }
-
-        private static void RefreshLineVisuals(XRRigReferences rig)
-        {
-            var visuals = rig.GetComponentsInChildren<XRInteractorLineVisual>(true);
-            for (int i = 0; i < visuals.Length; i++)
-            {
-                visuals[i].enabled = false;
-                visuals[i].enabled = true;
-            }
-        }
-
-        private static void EnsureXRInputActionsEnabled()
-        {
-            var refs = Liminal.SDK.XR.XRInputReferences.Instance;
-            if (refs == null) return;
-
-            var ctrlRefs = refs.RightControllerReferences;
-            if (ctrlRefs == null) return;
-
-            var backRef = ctrlRefs.Back;
-            if (backRef == null) return;
-
-            var asset = backRef.action?.actionMap?.asset;
-            if (asset != null)
-                asset.Enable();
         }
 
         public void CachePlatformAvatarHeadTransform()
