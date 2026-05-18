@@ -184,7 +184,15 @@ namespace Liminal.SDK.XR
 		/// <returns></returns>
 		public InputAction GetInputAction(string name)
         {
-            return InputRefs?.GetInputAction(name);
+            var action = InputRefs?.GetInputAction(name);
+            // The platform rig's InputActionManager.OnDisable runs when the platform
+            // ExperienceAppManager is deactivated during limapp playback, disabling the whole
+            // shared InputActionAsset. XRI's ActionBasedController re-enables Select/etc., but
+            // nothing re-enables Back. Lazy-enable here so reads always work regardless of who
+            // disabled the asset.
+            if (action != null && !action.enabled)
+                action.Enable();
+            return action;
         }
 	}
 }

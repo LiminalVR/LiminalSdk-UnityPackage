@@ -70,10 +70,11 @@ namespace Liminal.SDK.V2
                 return null;
             }
 
-            var rigToSpawn = PlatformInstance == null ? _xrRigPrefab : PlatformInstance.XRRigPrefab;
-            //rigToSpawn = _xrRigPrefab;
+            //var prefab = Resources.Load<GameObject>("XR_Rig").GetComponent<XRRigReferences>();
+            //SpawnedRig = Instantiate(_xrRigPrefab, transform);
 
-            SpawnedRig = Instantiate(rigToSpawn, transform);
+            SpawnedRig = Instantiate(Resources.Load<GameObject>("XR_Rig").GetComponent<XRRigReferences>(), transform);
+
             if (SpawnedRig == null)
                 Debug.LogError("[ExperienceAppManager] Spawned rig prefab has no XRRigReferences component on its root.", SpawnedRig);
 

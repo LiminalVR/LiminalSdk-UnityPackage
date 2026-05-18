@@ -11,6 +11,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals;
 using System.Collections;
 using Liminal.SDK.VR.Utils;
 
@@ -106,8 +107,13 @@ namespace App.PlatformViewer
 
             ExperienceApp.Resume();
             RestoreMenuMaskFor(PlatformExperienceAppManager != null ? PlatformExperienceAppManager.SpawnedRig : null);
-            SetExperienceAppManagerActive(LimappExperienceAppManager, true);
+            // Deactivate platform first so the shared InputActionAsset's disable/re-enable churn
+            // happens before the limapp's TrackedPoseDriver re-binds. Activating limapp first means
+            // its TrackedPoseDriver binds to an enabled action, then immediately sees the action
+            // disabled by platform's OnDisable cascade — it enters a 'tracking lost' state and
+            // holds the last pose even after we re-enable.
             SetExperienceAppManagerActive(PlatformExperienceAppManager, false);
+            SetExperienceAppManagerActive(LimappExperienceAppManager, true);
         }
 
         public Coroutine Exit()
@@ -177,14 +183,46 @@ namespace App.PlatformViewer
         {
             appManager.VRAvatar.gameObject.SetActive(state);
             appManager.gameObject.SetActive(state);
-            if (!state)
+
+            // Deactivating the manager runs InputActionManager.OnDisable on its rig, which
+            // Disable()s the shared XRI InputActionAsset — killing TrackedPoseDriver pose input
+            // (head locks on device) and other action reads. Force the asset back on after every
+            // toggle. The editor's XR Device Simulator drives transforms directly so this never
+            // showed up in-editor.
+            EnsureXRInputActionsEnabled();
+
+            // XRInteractorLineVisual doesn't fully re-initialise from a GameObject SetActive cycle —
+            // raycasts still work but the line + reticle stay in whatever state they were in at
+            // disable time. Toggling component.enabled forces OnDisable/OnEnable synchronously and
+            // resets the visual.
+            if (state && appManager.SpawnedRig != null)
+                RefreshLineVisuals(appManager.SpawnedRig);
+        }
+
+        private static void RefreshLineVisuals(XRRigReferences rig)
+        {
+            var visuals = rig.GetComponentsInChildren<XRInteractorLineVisual>(true);
+            for (int i = 0; i < visuals.Length; i++)
             {
-                //appManager.DespawnRig();
+                visuals[i].enabled = false;
+                visuals[i].enabled = true;
             }
-            else
-            {
-                //appManager.SpawnRig();
-            }
+        }
+
+        private static void EnsureXRInputActionsEnabled()
+        {
+            var refs = Liminal.SDK.XR.XRInputReferences.Instance;
+            if (refs == null) return;
+
+            var ctrlRefs = refs.RightControllerReferences;
+            if (ctrlRefs == null) return;
+
+            var backRef = ctrlRefs.Back;
+            if (backRef == null) return;
+
+            var asset = backRef.action?.actionMap?.asset;
+            if (asset != null)
+                asset.Enable();
         }
 
         public void CachePlatformAvatarHeadTransform()
