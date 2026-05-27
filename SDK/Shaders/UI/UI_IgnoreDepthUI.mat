@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: UI_IgnoreDepthUI
-  m_Shader: {fileID: 4800000, guid: 1168d8a31903db543a3b7100d6c652fa, type: 3}
+  m_Shader: {fileID: 4800000, guid: 71fca58bd1c96064f94d2dc6989c00bf, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
