@@ -21,8 +21,6 @@ namespace Liminal.SDK.V2
     /// </summary>
     public class ExperienceAppManager : MonoBehaviour
     {
-        public InputActionReference TestAction;
-
         public static ExperienceAppManager PlatformInstance;
         public static ExperienceAppManager LimappInstance;
 
@@ -178,22 +176,6 @@ namespace Liminal.SDK.V2
                 Setup();
         }
 
-        private void OnEnable()
-        {
-            if (TestAction != null && TestAction.action != null)
-                TestAction.action.performed += OnTestActionPerformed;
-        }
-
-        private void OnDisable()
-        {
-            if (TestAction != null && TestAction.action != null)
-                TestAction.action.performed -= OnTestActionPerformed;
-        }
-
-        private void OnTestActionPerformed(InputAction.CallbackContext ctx)
-        {
-        }
-
         public void RegisterIntearctors()
         {
             if (SpawnedRig == null)
@@ -306,26 +288,7 @@ namespace Liminal.SDK.V2
             // Offset takes head position that was how we offset the head.
             CameraOffset.transform.position = AvatarHead.transform.position;
             CameraOffset.transform.rotation = AvatarHead.transform.rotation;
-
-            TriggerTestAction();
         }
-
-        [ContextMenu("Trigger Test Action")]
-        private void TriggerTestAction()
-        {
-            var action = TestAction != null ? TestAction.action : null;
-            if (action == null)
-            {
-                Debug.LogWarning("[ExperienceAppManager] TestAction is not assigned.", this);
-                return;
-            }
-
-            if (!action.enabled)
-                action.Enable();
-
-            StartCoroutine(PressAndRelease(action));
-        }
-
         private static IEnumerator PressAndRelease(InputAction action)
         {
             WriteButton(action, 1f);

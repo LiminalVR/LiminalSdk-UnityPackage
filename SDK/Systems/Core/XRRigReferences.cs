@@ -37,5 +37,7 @@ namespace Liminal.SDK.V2
         public XRRayInteractor RightControllerRayInteractor;
         public XRRayInteractor LeftControllerRayInteractor;
 
+        public XRRayInteractor RightHandRayInteractor;
+        public XRRayInteractor LeftHandRayInteractor;
     }
 }

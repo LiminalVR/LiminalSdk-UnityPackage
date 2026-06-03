@@ -1,32 +1,86 @@
+using System;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Readers;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
+[Serializable]
+public class RayReference
+{
+    public XRRayInteractor Ray;
+}
+
 [RequireComponent(typeof(XRRayInteractor))]
 public class KeyboardUIClick : MonoBehaviour
 {
+    [SerializeField] KeyCode m_Key = KeyCode.B;
+
     XRRayInteractor m_Ray;
-    bool m_WasHeld;
+    KeyboardOrBypass m_Bypass;
 
     void Awake()
     {
         m_Ray = GetComponent<XRRayInteractor>();
-        m_Ray.uiPressInput.inputSourceMode = XRInputButtonReader.InputSourceMode.ManualValue;
-        Debug.Log($"[KeyboardUIClick] Awake on {name}. Mode now = {m_Ray.uiPressInput.inputSourceMode}");
+        m_Bypass = new KeyboardOrBypass(m_Ray.uiPressInput, () => Input.GetKey(m_Key));
+        m_Ray.uiPressInput.bypass = m_Bypass;
     }
 
-    void Update()
+    void OnDestroy()
     {
-        bool held = Input.GetKey(KeyCode.B);
-        m_Ray.uiPressInput.QueueManualState(held, held ? 1f : 0f);
+        if (m_Ray != null && ReferenceEquals(m_Ray.uiPressInput.bypass, m_Bypass))
+            m_Ray.uiPressInput.bypass = null;
+    }
 
-        if (held != m_WasHeld)
+    sealed class KeyboardOrBypass : IXRInputButtonReader
+    {
+        readonly XRInputButtonReader m_Original;
+        readonly Func<bool> m_KeyHeld;
+
+        int m_LastEdgeFrame = -1;
+        bool m_LastHeld;
+        int m_PressedFrame = -1;
+        int m_ReleasedFrame = -1;
+
+        public KeyboardOrBypass(XRInputButtonReader original, Func<bool> keyHeld)
         {
-            Debug.Log($"[KeyboardUIClick] B edge -> held={held}. " +
-                      $"Mode={m_Ray.uiPressInput.inputSourceMode}, " +
-                      $"ReadIsPerformed={m_Ray.uiPressInput.ReadIsPerformed()}, " +
-                      $"hasHover={m_Ray.hasHover}");
-            m_WasHeld = held;
+            m_Original = original;
+            m_KeyHeld = keyHeld;
+        }
+
+        void TickEdges()
+        {
+            if (m_LastEdgeFrame == Time.frameCount) return;
+            m_LastEdgeFrame = Time.frameCount;
+
+            bool held = m_KeyHeld();
+            if (held && !m_LastHeld) m_PressedFrame = Time.frameCount;
+            else if (!held && m_LastHeld) m_ReleasedFrame = Time.frameCount;
+            m_LastHeld = held;
+        }
+
+        public bool ReadIsPerformed()
+        {
+            TickEdges();
+            return m_KeyHeld() || m_Original.ReadIsPerformed();
+        }
+
+        public bool ReadWasPerformedThisFrame()
+        {
+            TickEdges();
+            return m_PressedFrame == Time.frameCount || m_Original.ReadWasPerformedThisFrame();
+        }
+
+        public bool ReadWasCompletedThisFrame()
+        {
+            TickEdges();
+            return m_ReleasedFrame == Time.frameCount || m_Original.ReadWasCompletedThisFrame();
+        }
+
+        public float ReadValue() => m_KeyHeld() ? 1f : m_Original.ReadValue();
+
+        public bool TryReadValue(out float value)
+        {
+            if (m_KeyHeld()) { value = 1f; return true; }
+            return m_Original.TryReadValue(out value);
         }
     }
 }

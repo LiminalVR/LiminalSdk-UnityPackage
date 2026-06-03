@@ -30,11 +30,6 @@ public class ControllerInputExample : MonoBehaviour
         AppendDeviceInput(inputStringBuilder, device.SecondaryInputDevice, "Secondary");
 
         InputText.text = inputStringBuilder.ToString();
-
-        if (device.GetButtonDown(VRButton.One))
-        {
-            Debug.Log("One Pressed");
-        }
     }
 
     public void SetControllerVisibility(bool state)
