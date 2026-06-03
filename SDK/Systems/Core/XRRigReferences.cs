@@ -22,6 +22,10 @@ namespace Liminal.SDK.V2
 
         public Transform RigRightHand;
         public Transform RigLeftHand;
+
+        public Transform RigRightHandTracked;
+        public Transform RigLeftHandTracked;
+
         public Transform CameraOffset;
 
         public Transform RigRightHandVisual;
@@ -32,5 +36,6 @@ namespace Liminal.SDK.V2
 
         public XRRayInteractor RightControllerRayInteractor;
         public XRRayInteractor LeftControllerRayInteractor;
+
     }
 }
