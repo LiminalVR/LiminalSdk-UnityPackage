@@ -192,7 +192,6 @@ namespace Liminal.SDK.V2
 
         private void OnTestActionPerformed(InputAction.CallbackContext ctx)
         {
-            Debug.Log("Test Action Performed");
         }
 
         public void RegisterIntearctors()

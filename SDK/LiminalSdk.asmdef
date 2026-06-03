@@ -9,7 +9,8 @@
         "Unity.XR.Interaction.Toolkit",
         "Unity.XR.CoreUtils",
         "Unity.XR.Hands",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.Mathematics"
     ],
     "includePlatforms": [
         "Android",
@@ -17,8 +18,8 @@
         "iOS",
         "LinuxStandalone64",
         "macOSStandalone",
-        "PS4",
         "Switch",
+        "PS4",
         "tvOS",
         "WSA",
         "WebGL",
