@@ -1213,6 +1213,17 @@
                 },
                 {
                     "name": "",
+                    "id": "ae6a09a9-2830-4f56-afd7-568c7e90f1e5",
+                    "path": "<HandInteraction>{LeftHand}/pinchTouched",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Activate",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "3b8b1b59-2fdc-4998-8259-50341075d9a2",
                     "path": "<XRController>{LeftHand}/{Trigger}",
                     "interactions": "",
@@ -2285,7 +2296,7 @@
                 },
                 {
                     "name": "",
-                    "id": "1d5b47ea-64e3-4b99-b620-de6c360908be",
+                    "id": "54ab714f-83fa-4ed2-a5c0-9130606644e7",
                     "path": "<MetaAimHand>{RightHand}/indexPressed",
                     "interactions": "",
                     "processors": "",
@@ -2406,8 +2417,30 @@
                 },
                 {
                     "name": "",
+                    "id": "ea93ed61-c27b-43d9-9659-251d50db56dd",
+                    "path": "<HandInteraction>{RightHand}/pinchTouched",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Activate",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "150f414f-61bf-47b1-b4f8-f772a2a40565",
                     "path": "<XRController>{RightHand}/{Trigger}",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Activate Value",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "47ba9e3e-33e1-4e6a-9c25-05aaa673f433",
+                    "path": "<HandInteraction>{RightHand}/pinchValue",
                     "interactions": "",
                     "processors": "",
                     "groups": "",

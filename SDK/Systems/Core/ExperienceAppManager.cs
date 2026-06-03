@@ -3,6 +3,10 @@ using Liminal.SDK.VR.Avatars;
 using Liminal.SDK.XR;
 using Unity.XR.CoreUtils;
 using UnityEngine;
+using System.Collections;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Inputs;
@@ -17,6 +21,8 @@ namespace Liminal.SDK.V2
     /// </summary>
     public class ExperienceAppManager : MonoBehaviour
     {
+        public InputActionReference TestAction;
+
         public static ExperienceAppManager PlatformInstance;
         public static ExperienceAppManager LimappInstance;
 
@@ -41,6 +47,8 @@ namespace Liminal.SDK.V2
         public GameObject XRRig => SpawnedRig != null ? SpawnedRig.XRRig : null;
         public Transform RigRightHand => SpawnedRig != null ? SpawnedRig.RigRightHand : null;
         public Transform RigLeftHand => SpawnedRig != null ? SpawnedRig.RigLeftHand : null;
+        public Transform RigRightHandTracked => SpawnedRig != null ? SpawnedRig.RigRightHandTracked : null;
+        public Transform RigLeftHandTracked => SpawnedRig != null ? SpawnedRig.RigLeftHandTracked : null;
         public Transform CameraOffset => SpawnedRig != null ? SpawnedRig.CameraOffset : null;
         public TrackedPoseDriver OriginalTrackedPoseDriver => SpawnedRig != null ? SpawnedRig.OriginalTrackedPoseDriver : null;
         public XRRayInteractor RightControllerRayInteractor => SpawnedRig != null ? SpawnedRig.RightControllerRayInteractor : null;
@@ -162,12 +170,29 @@ namespace Liminal.SDK.V2
         {
             if(IsLimapp)
                 LimappInstance = this;
-                
+
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
 
             if(RunOnStart)
                 Setup();
+        }
+
+        private void OnEnable()
+        {
+            if (TestAction != null && TestAction.action != null)
+                TestAction.action.performed += OnTestActionPerformed;
+        }
+
+        private void OnDisable()
+        {
+            if (TestAction != null && TestAction.action != null)
+                TestAction.action.performed -= OnTestActionPerformed;
+        }
+
+        private void OnTestActionPerformed(InputAction.CallbackContext ctx)
+        {
+            Debug.Log("Test Action Performed");
         }
 
         public void RegisterIntearctors()
@@ -263,16 +288,65 @@ namespace Liminal.SDK.V2
             if (AvatarRightHand == null || SpawnedRig == null)
                 return;
 
+            var mode = XRInputModalityManager.currentInputMode.Value;
+            var rightHand = mode == XRInputModalityManager.InputMode.TrackedHand
+                ? SpawnedRig.RigRightHandTracked
+                : SpawnedRig.RigRightHand;
+
+            var leftHand = mode == XRInputModalityManager.InputMode.TrackedHand
+                ? SpawnedRig.RigLeftHandTracked
+                : SpawnedRig.RigLeftHand;
+
             // Update and Sync controller positions.
-            AvatarRightHand.transform.position = RigRightHand.transform.position;
-            AvatarRightHand.transform.rotation = RigRightHand.transform.rotation;
+            AvatarRightHand.transform.position = rightHand.transform.position;
+            AvatarRightHand.transform.rotation = rightHand.transform.rotation;
 
-            AvatarLeftHand.transform.position = RigLeftHand.transform.position;
-            AvatarLeftHand.transform.rotation = RigLeftHand.transform.rotation;
+            AvatarLeftHand.transform.position = leftHand.transform.position;
+            AvatarLeftHand.transform.rotation = leftHand.transform.rotation;
 
-            // Offset takes head position that was how we offset the head. 
+            // Offset takes head position that was how we offset the head.
             CameraOffset.transform.position = AvatarHead.transform.position;
             CameraOffset.transform.rotation = AvatarHead.transform.rotation;
+
+            TriggerTestAction();
+        }
+
+        [ContextMenu("Trigger Test Action")]
+        private void TriggerTestAction()
+        {
+            var action = TestAction != null ? TestAction.action : null;
+            if (action == null)
+            {
+                Debug.LogWarning("[ExperienceAppManager] TestAction is not assigned.", this);
+                return;
+            }
+
+            if (!action.enabled)
+                action.Enable();
+
+            StartCoroutine(PressAndRelease(action));
+        }
+
+        private static IEnumerator PressAndRelease(InputAction action)
+        {
+            WriteButton(action, 1f);
+            yield return null;
+            WriteButton(action, 0f);
+        }
+
+        private static void WriteButton(InputAction action, float value)
+        {
+            foreach (var control in action.controls)
+            {
+                if (control is not ButtonControl button || button.device == null)
+                    continue;
+
+                using (StateEvent.From(button.device, out var eventPtr))
+                {
+                    button.WriteValueIntoEvent(value, eventPtr);
+                    InputSystem.QueueEvent(eventPtr);
+                }
+            }
         }
     }
 }
