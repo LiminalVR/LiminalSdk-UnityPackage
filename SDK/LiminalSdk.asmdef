@@ -10,7 +10,8 @@
         "Unity.XR.CoreUtils",
         "Unity.XR.Hands",
         "Unity.InputSystem",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.XR.Hands.Samples.VisualizerSample"
     ],
     "includePlatforms": [
         "Android",

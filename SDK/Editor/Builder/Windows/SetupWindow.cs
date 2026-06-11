@@ -1,9 +1,11 @@
 using System;
 using System.IO;
+using System.Reflection;
 using Liminal.SDK.Core;
 using Liminal.SDK.Editor.Build;
 using Liminal.SDK.V2;
 using Liminal.SDK.VR.Avatars;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -23,6 +25,10 @@ namespace Liminal.SDK.Build
         private const string ExperienceManagerObjectName = "ExperienceManager";
         private const string ExperienceAppObjectName = "[ExperienceApp]";
 
+        private const string TemplateSetupFolder = "Assets/Liminal/TemplateSetup";
+        private const string TextMeshProFolder = "Assets/TextMesh Pro";
+        private const string TMPSettingsAssetPath = TextMeshProFolder + "/Resources/TMP Settings.asset";
+
         public override void Draw(BuildWindowConfig config)
         {
             var hasExperienceApp = FindAnyExperienceApp() != null;
@@ -40,8 +46,28 @@ namespace Liminal.SDK.Build
                 GUILayout.Label("Complete each step in order. Steps unlock as their prerequisites are met.", EditorStyles.wordWrappedLabel);
                 GUILayout.Space(8);
 
+                var hasTemplateSetup = AssetDatabase.IsValidFolder(TemplateSetupFolder);
                 DrawStep(
                     index: 1,
+                    title: "Remove TemplateSetup",
+                    description: "Deletes the legacy Assets/Liminal/TemplateSetup folder, which is incompatible with this SDK version.",
+                    done: !hasTemplateSetup,
+                    enabled: hasTemplateSetup,
+                    buttonLabel: "Delete TemplateSetup",
+                    onClick: DeleteTemplateSetup);
+
+                var tmpUpToDate = IsTextMeshProUpToDate();
+                DrawStep(
+                    index: 2,
+                    title: "Refresh TextMesh Pro",
+                    description: "Deletes the legacy Assets/TextMesh Pro folder and silently re-imports the TMP Essential Resources from the built-in uGUI package, so the resources match this Unity version.",
+                    done: tmpUpToDate,
+                    enabled: !tmpUpToDate,
+                    buttonLabel: "Refresh TMP Resources",
+                    onClick: RefreshTextMeshPro);
+
+                DrawStep(
+                    index: 3,
                     title: "Verify [ExperienceApp]",
                     description: "Ensures the scene has a GameObject with an ExperienceApp (or subclass) component. Pending if the [ExperienceApp] GameObject is missing, or exists but lost its script.",
                     done: hasExperienceApp,
@@ -50,7 +76,7 @@ namespace Liminal.SDK.Build
                     onClick: EnsureExperienceApp);
 
                 DrawStep(
-                    index: 2,
+                    index: 4,
                     title: "Spawn VRAvatar",
                     description: "Drops the VRAvatar prefab into the active scene. Required before wiring up the ExperienceManager.",
                     done: hasVRAvatar,
@@ -59,7 +85,7 @@ namespace Liminal.SDK.Build
                     onClick: SpawnVRAvatar);
 
                 DrawStep(
-                    index: 3,
+                    index: 5,
                     title: "Setup Scene",
                     description: "Spawns the ExperienceManager prefab and wires up references to the existing ExperienceApp / VRAvatar.",
                     done: hasManager,
@@ -68,25 +94,25 @@ namespace Liminal.SDK.Build
                     onClick: SpawnAndFindReferences);
 
                 DrawStep(
-                    index: 4,
+                    index: 6,
                     title: "Configure XR",
-                    description: "Enables the Oculus XR provider and 'Initialize XR on Startup' for both Android and Windows (Standalone).",
-                    done: XRSettingsConfigurator.IsOculusConfiguredForAndroidAndStandalone(),
+                    description: "Sets OpenXR as the XR provider with 'Initialize XR on Startup' for both Android and Windows (Standalone), and enables the required interaction profiles (Oculus Touch, Hand Interaction, Meta Quest Touch Plus) and features (Hand Interaction Poses, Hand Tracking Subsystem, Meta Hand Tracking Aim, Meta Quest Support, Palm Pose). Also applies the OpenXR project-validation fixes: IL2CPP + ARM64, Game Activity entry point, Prioritize Input Polling latency, Optimize Buffer Discards disabled (it is Vulkan-only; the platform uses GLES3), and the PoseControl/StickControl input defines.",
+                    done: XRSettingsConfigurator.IsOpenXRConfiguredForAndroidAndStandalone(),
                     enabled: hasManager,
                     buttonLabel: "Configure XR",
-                    onClick: XRSettingsConfigurator.ConfigureOculusForAndroidAndStandalone);
+                    onClick: XRSettingsConfigurator.ConfigureOpenXRForAndroidAndStandalone);
 
                 DrawStep(
-                    index: 5,
+                    index: 7,
                     title: "Configure Android",
-                    description: "Forces Linear color space, switches to Android build target, sets Min API Level to 30 (Android 11), and deletes the legacy Assets/Plugins/Android folder.",
+                    description: "Forces Linear color space, switches to Android build target, sets Min API Level to 30 (Android 11), forces GLES3 as the sole graphics API (removes Vulkan), and deletes the legacy Assets/Plugins/Android folder.",
                     done: PlayerSettingsConfigurator.IsAndroidConfigured(),
                     enabled: hasManager,
                     buttonLabel: "Configure Android",
                     onClick: PlayerSettingsConfigurator.ConfigureAndroid);
 
                 DrawStep(
-                    index: 6,
+                    index: 8,
                     title: "Setup Limapp Build",
                     description: "Creates the project-root assembly definition (named after the app manifest) plus a single shared Editor assembly definition, and drops asmref pointers into every /Editor folder so all editor scripts compile into one assembly (fixes cross-folder editor references like Mirza Beig's Particle Scaler ↔ Particle Playback). Required so the limapp DLL compiles without UNITY_EDITOR. Safe to re-run — references are refreshed and legacy per-folder Editor asmdefs are auto-migrated to asmrefs.",
                     done: IsLimappBuildConfigured(),
@@ -126,6 +152,56 @@ namespace Liminal.SDK.Build
             }
             GUILayout.EndVertical();
             GUILayout.Space(4);
+        }
+
+        private static void DeleteTemplateSetup()
+        {
+            if (AssetDatabase.DeleteAsset(TemplateSetupFolder))
+                Debug.Log($"[Setup] Deleted {TemplateSetupFolder}.");
+            else
+                Debug.LogWarning($"[Setup] Could not delete {TemplateSetupFolder}.");
+        }
+
+        /// <summary>
+        /// Mirrors the check TMP's own resource importer uses: the TMP Settings asset exists and its
+        /// (internal) assetVersion matches the package's s_CurrentAssetVersion. If the internals move
+        /// in a future uGUI version, falls back to just checking the asset exists.
+        /// </summary>
+        private static bool IsTextMeshProUpToDate()
+        {
+            var settings = AssetDatabase.LoadAssetAtPath<ScriptableObject>(TMPSettingsAssetPath);
+            if (settings == null)
+                return false;
+
+            var currentVersion = typeof(TMP_Settings)
+                .GetField("s_CurrentAssetVersion", BindingFlags.NonPublic | BindingFlags.Static)
+                ?.GetValue(null) as string;
+
+            var assetVersion = new SerializedObject(settings).FindProperty("assetVersion");
+            if (currentVersion == null || assetVersion == null)
+                return true;
+
+            return assetVersion.stringValue == currentVersion;
+        }
+
+        private static void RefreshTextMeshPro()
+        {
+            if (AssetDatabase.IsValidFolder(TextMeshProFolder))
+            {
+                if (!AssetDatabase.DeleteAsset(TextMeshProFolder))
+                {
+                    Debug.LogWarning($"[Setup] Could not delete {TextMeshProFolder} — aborting TMP refresh.");
+                    return;
+                }
+
+                Debug.Log($"[Setup] Deleted {TextMeshProFolder}.");
+            }
+
+            // A fresh (non-update) import ships TMP Settings with the current asset version already
+            // set, so no SetAssetVersion call is needed afterwards. Import is async; the step's Done
+            // badge flips once it completes.
+            TMP_PackageResourceImporter.ImportResources(importEssentials: true, importExamples: false, interactive: false);
+            Debug.Log("[Setup] Importing TMP Essential Resources...");
         }
 
         private static void SpawnVRAvatar()

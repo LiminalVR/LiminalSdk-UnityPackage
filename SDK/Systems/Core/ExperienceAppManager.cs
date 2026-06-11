@@ -43,10 +43,10 @@ namespace Liminal.SDK.V2
 
         public XROrigin XROrigin => SpawnedRig != null ? SpawnedRig.XROrigin : null;
         public GameObject XRRig => SpawnedRig != null ? SpawnedRig.XRRig : null;
-        public Transform RigRightHand => SpawnedRig != null ? SpawnedRig.RigRightHand : null;
-        public Transform RigLeftHand => SpawnedRig != null ? SpawnedRig.RigLeftHand : null;
-        public Transform RigRightHandTracked => SpawnedRig != null ? SpawnedRig.RigRightHandTracked : null;
-        public Transform RigLeftHandTracked => SpawnedRig != null ? SpawnedRig.RigLeftHandTracked : null;
+        public Transform RigRightHand => SpawnedRig != null ? SpawnedRig.RightController : null;
+        public Transform RigLeftHand => SpawnedRig != null ? SpawnedRig.LeftController : null;
+        public Transform RigRightHandTracked => SpawnedRig != null ? SpawnedRig.RightHand : null;
+        public Transform RigLeftHandTracked => SpawnedRig != null ? SpawnedRig.LeftHand : null;
         public Transform CameraOffset => SpawnedRig != null ? SpawnedRig.CameraOffset : null;
         public TrackedPoseDriver OriginalTrackedPoseDriver => SpawnedRig != null ? SpawnedRig.OriginalTrackedPoseDriver : null;
         public XRRayInteractor RightControllerRayInteractor => SpawnedRig != null ? SpawnedRig.RightControllerRayInteractor : null;
@@ -125,10 +125,12 @@ namespace Liminal.SDK.V2
         [ContextMenu("2 - Scene Setup")]
         public void SceneSetup()
         {
-            XROrigin.Camera = AvatarHead.CenterEyeCamera;
-            XROrigin.CameraFloorOffsetObject = AvatarHead.transform.gameObject;
-            XROrigin.CameraYOffset = AvatarHead.transform.localPosition.y;
-
+            if(XROrigin != null){
+                XROrigin.Camera = AvatarHead.CenterEyeCamera;
+                XROrigin.CameraFloorOffsetObject = AvatarHead.transform.gameObject;
+                XROrigin.CameraYOffset = AvatarHead.transform.localPosition.y;
+            }
+            
             CopyTrackedPoseDriverToCenterEye();
 
             VRAvatar.Auxiliaries.gameObject.SetActive(false);
@@ -143,9 +145,15 @@ namespace Liminal.SDK.V2
 
         private void CopyTrackedPoseDriverToCenterEye()
         {
-            if (OriginalTrackedPoseDriver == null)
+            // Read from the prefab asset rather than the spawned rig, so the center eye driver
+            // can still be set up when the rig hasn't been spawned. JsonUtility only reads
+            // serialized state, so the prefab's component works the same as an instance's.
+            var rigPrefab = Resources.Load<GameObject>("XR_Rig")?.GetComponent<XRRigReferences>();
+            var sourceDriver = rigPrefab != null ? rigPrefab.OriginalTrackedPoseDriver : null;
+
+            if (sourceDriver == null)
             {
-                Debug.LogWarning("[ExperienceAppManager] OriginalTrackedPoseDriver not assigned — skipping TrackedPoseDriver copy.", this);
+                Debug.LogWarning("[ExperienceAppManager] XR_Rig prefab or its OriginalTrackedPoseDriver not found — skipping TrackedPoseDriver copy.", this);
                 return;
             }
 
@@ -160,8 +168,14 @@ namespace Liminal.SDK.V2
             if (driver == null)
                 driver = centerEye.AddComponent<TrackedPoseDriver>();
 
+            // Power-cycle around the overwrite: TrackedPoseDriver binds its actions in OnEnable,
+            // so an already-enabled driver keeps the stale (or missing) bindings and stops tracking.
+            driver.enabled = false;
+
             // JsonUtility round-trip copies all [SerializeField] state — same trick the editor uses internally.
-            JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(OriginalTrackedPoseDriver), driver);
+            JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(sourceDriver), driver);
+
+            driver.enabled = true;
         }
 
         private void Awake()
@@ -271,12 +285,12 @@ namespace Liminal.SDK.V2
 
             var mode = XRInputModalityManager.currentInputMode.Value;
             var rightHand = mode == XRInputModalityManager.InputMode.TrackedHand
-                ? SpawnedRig.RigRightHandTracked
-                : SpawnedRig.RigRightHand;
+                ? SpawnedRig.RightHand
+                : SpawnedRig.RightController;
 
             var leftHand = mode == XRInputModalityManager.InputMode.TrackedHand
-                ? SpawnedRig.RigLeftHandTracked
-                : SpawnedRig.RigLeftHand;
+                ? SpawnedRig.LeftHand
+                : SpawnedRig.LeftController;
 
             // Update and Sync controller positions.
             AvatarRightHand.transform.position = rightHand.transform.position;

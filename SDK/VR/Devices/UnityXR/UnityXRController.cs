@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Liminal.SDK.V2;
 using Liminal.SDK.VR;
 using Liminal.SDK.VR.Avatars;
 using Liminal.SDK.VR.Avatars.Controllers;
@@ -110,14 +111,25 @@ namespace Liminal.SDK.XR
             return action != null ? action.ReadValue<Vector2>() : Vector2.zero;
 		}
 
+		private static readonly HashSet<string> AutoClickerTriggerButtons = new HashSet<string>
+		{
+			VRButton.Trigger, VRButton.One, VRButton.Primary,
+		};
+
 		// Null-coalesce guards the window between rig despawn and respawn, where XRInputReferences.Instance
 		// briefly points at a destroyed prefab and the input action chain is unresolvable.
 		public override bool GetButton(string button)
-            => GetInputAction(button)?.IsPressed() ?? false;
+            => (GetInputAction(button)?.IsPressed() ?? false) || AutoClickerPressed(button, ac => ac.IsHandPressed(Hand));
 		public override bool GetButtonDown(string button)
-            => GetInputAction(button)?.WasPressedThisFrame() ?? false;
+            => (GetInputAction(button)?.WasPressedThisFrame() ?? false) || AutoClickerPressed(button, ac => ac.WasHandPressedThisFrame(Hand));
 		public override bool GetButtonUp(string button)
-            => GetInputAction(button)?.WasReleasedThisFrame() ?? false;
+            => (GetInputAction(button)?.WasReleasedThisFrame() ?? false) || AutoClickerPressed(button, ac => ac.WasHandReleasedThisFrame(Hand));
+
+		private bool AutoClickerPressed(string button, Func<AutoClicker, bool> probe)
+		{
+			var ac = AutoClicker.Instance;
+			return ac != null && AutoClickerTriggerButtons.Contains(button) && probe(ac);
+		}
 
 		public XRInputControllerReferences InputRefs =>
 			XRInputReferences.Instance != null

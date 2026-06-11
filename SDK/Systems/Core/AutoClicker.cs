@@ -1,3 +1,5 @@
+using System;
+using Liminal.SDK.VR.Input;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Readers;
 
@@ -5,6 +7,8 @@ namespace Liminal.SDK.V2
 {
 public class AutoClicker : MonoBehaviour
 {
+    public static AutoClicker Instance { get; private set; }
+
     public enum ClickMode
     {
         // Press for 1 frame, release. Each pulse interval = one click.
@@ -18,6 +22,15 @@ public class AutoClicker : MonoBehaviour
         Latch,
     }
 
+    [Flags]
+    public enum Hands
+    {
+        None = 0,
+        Left = 1 << 0,
+        Right = 1 << 1,
+        Both = Left | Right,
+    }
+
     public ExperienceAppManager ExperienceAppManager;
     public XRRigReferences RigReferences =>
         ExperienceAppManager == null ? null : ExperienceAppManager.SpawnedRig;
@@ -26,6 +39,7 @@ public class AutoClicker : MonoBehaviour
     public RayReference RightRay;
 
     public ClickMode Mode = ClickMode.Pulse;
+    public Hands EnabledHands = Hands.Both;
     public float ClickRate = 0.2f;
 
     private float _clickTimer;
@@ -35,13 +49,49 @@ public class AutoClicker : MonoBehaviour
     private GameObject _rightLatched;
     private XRRigReferences _wiredRig;
 
+    private void OnEnable()
+    {
+        Instance = this;
+    }
+
     private void OnDisable()
     {
+        if (Instance == this) Instance = null;
         _leftBypass?.ReleaseHold();
         _rightBypass?.ReleaseHold();
         _leftLatched = null;
         _rightLatched = null;
     }
+
+    public bool IsHandPressed(VRInputDeviceHand hand)
+    {
+        if (!IsHandEnabled(hand)) return false;
+        var bypass = BypassFor(hand);
+        return bypass != null && bypass.IsPressed;
+    }
+
+    public bool WasHandPressedThisFrame(VRInputDeviceHand hand)
+    {
+        if (!IsHandEnabled(hand)) return false;
+        var bypass = BypassFor(hand);
+        return bypass != null && bypass.WasPressedThisFrame;
+    }
+
+    public bool WasHandReleasedThisFrame(VRInputDeviceHand hand)
+    {
+        if (!IsHandEnabled(hand)) return false;
+        var bypass = BypassFor(hand);
+        return bypass != null && bypass.WasReleasedThisFrame;
+    }
+
+    public bool IsHandEnabled(VRInputDeviceHand hand)
+    {
+        var flag = hand == VRInputDeviceHand.Left ? Hands.Left : Hands.Right;
+        return (EnabledHands & flag) != 0;
+    }
+
+    private PulseBypass BypassFor(VRInputDeviceHand hand) =>
+        hand == VRInputDeviceHand.Left ? _leftBypass : _rightBypass;
 
     private void OnDestroy()
     {
@@ -56,20 +106,27 @@ public class AutoClicker : MonoBehaviour
         bool fireRate = _clickTimer >= ClickRate;
         if (fireRate) _clickTimer = 0f;
 
+        Drive(VRInputDeviceHand.Left, _leftBypass, LeftRay, ref _leftLatched, fireRate);
+        Drive(VRInputDeviceHand.Right, _rightBypass, RightRay, ref _rightLatched, fireRate);
+    }
+
+    private void Drive(VRInputDeviceHand hand, PulseBypass bypass, RayReference rayRef, ref GameObject latched, bool fireRate)
+    {
+        if (bypass == null) return;
+
+        if (!IsHandEnabled(hand))
+        {
+            // Disabled mid-press: drop any active press and forget any latched target.
+            bypass.ReleaseHold();
+            latched = null;
+            return;
+        }
+
         switch (Mode)
         {
-            case ClickMode.Pulse:
-                ApplySimple(_leftBypass, hold: false, fireRate);
-                ApplySimple(_rightBypass, hold: false, fireRate);
-                break;
-            case ClickMode.Hold:
-                ApplySimple(_leftBypass, hold: true, fireRate);
-                ApplySimple(_rightBypass, hold: true, fireRate);
-                break;
-            case ClickMode.Latch:
-                ApplyLatch(LeftRay, _leftBypass, ref _leftLatched, fireRate);
-                ApplyLatch(RightRay, _rightBypass, ref _rightLatched, fireRate);
-                break;
+            case ClickMode.Pulse: ApplySimple(bypass, hold: false, fireRate); break;
+            case ClickMode.Hold:  ApplySimple(bypass, hold: true,  fireRate); break;
+            case ClickMode.Latch: ApplyLatch(rayRef, bypass, ref latched, fireRate); break;
         }
     }
 
@@ -178,6 +235,10 @@ public class AutoClicker : MonoBehaviour
         private bool _holdAfterRepress;
 
         public PulseBypass(XRInputButtonReader original) { _original = original; }
+
+        public bool IsPressed => _pressed;
+        public bool WasPressedThisFrame => _pressFrame == Time.frameCount;
+        public bool WasReleasedThisFrame => _releaseFrame == Time.frameCount;
 
         // Fires a click. If holdAfter is true, the press resumes next frame (Hold mode).
         // If false, the press releases on the next Tick (Pulse mode).

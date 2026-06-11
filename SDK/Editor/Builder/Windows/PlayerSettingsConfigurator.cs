@@ -2,6 +2,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Liminal.SDK.Build
 {
@@ -16,6 +17,7 @@ namespace Liminal.SDK.Build
             EnsureLinearColorSpace();
             EnsureAndroidBuildTarget();
             EnsureMinAndroidApiLevel();
+            EnsureGLES3GraphicsApi();
             EnsureAndroidScriptingDefine(OvrAndroidMrcDefine);
             DeleteLegacyPluginsAndroid();
         }
@@ -31,6 +33,10 @@ namespace Liminal.SDK.Build
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
                 return false;
             if ((int)PlayerSettings.Android.minSdkVersion < (int)MinAndroidSdk)
+                return false;
+
+            var graphicsApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.Android);
+            if (graphicsApis.Length != 1 || graphicsApis[0] != GraphicsDeviceType.OpenGLES3)
                 return false;
 
             var defines = PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.Android) ?? string.Empty;
@@ -86,6 +92,22 @@ namespace Liminal.SDK.Build
 
             PlayerSettings.Android.minSdkVersion = MinAndroidSdk;
             Debug.Log($"[PlayerSettings] Min Android API set to {(int)MinAndroidSdk} (Android 11).");
+        }
+
+        private static void EnsureGLES3GraphicsApi()
+        {
+            var apis = PlayerSettings.GetGraphicsAPIs(BuildTarget.Android);
+            if (!PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.Android)
+                && apis.Length == 1 && apis[0] == GraphicsDeviceType.OpenGLES3)
+            {
+                Debug.Log("[PlayerSettings] Android graphics API already GLES3 only.");
+                return;
+            }
+
+            // The Liminal platform runs limapps under GLES3 — Vulkan must not be in the list.
+            PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3 });
+            Debug.Log("[PlayerSettings] Android graphics API set to GLES3 only (Vulkan removed).");
         }
 
         private static void EnsureAndroidScriptingDefine(string define)

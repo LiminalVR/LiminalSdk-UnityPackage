@@ -7,7 +7,12 @@
         "Oculus.VR.Editor",
         "Unity.EditorCoroutines.Editor",
         "Unity.XR.Management",
-        "Unity.XR.Management.Editor"
+        "Unity.XR.Management.Editor",
+        "Unity.XR.OpenXR",
+        "Unity.XR.OpenXR.Editor",
+        "Unity.XR.OpenXR.Features.MetaQuestSupport",
+        "Unity.XR.Hands",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [
         "Editor"

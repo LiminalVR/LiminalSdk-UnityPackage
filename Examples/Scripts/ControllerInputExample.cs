@@ -17,19 +17,97 @@ public class ControllerInputExample : MonoBehaviour
 {
     public Text InputText;
 
+    [Tooltip("Thumb gesture detectors to display. Found automatically when left empty.")]
+    public XRThumbGestureDetector[] ThumbGestureDetectors;
+
+    private class GestureDisplayState
+    {
+        public XRThumbGestureDetector Detector;
+        public bool ThumbPressed;
+        public string LastGesture = "None";
+        public float LastGestureTime = float.NegativeInfinity;
+    }
+
+    private readonly List<GestureDisplayState> _gestureStates = new List<GestureDisplayState>();
+    private readonly List<(UnityEngine.Events.UnityEvent Event, UnityEngine.Events.UnityAction Action)> _gestureSubscriptions =
+        new List<(UnityEngine.Events.UnityEvent, UnityEngine.Events.UnityAction)>();
+
+    private void OnEnable()
+    {
+        if (ThumbGestureDetectors == null || ThumbGestureDetectors.Length == 0)
+            ThumbGestureDetectors = FindObjectsByType<XRThumbGestureDetector>(FindObjectsInactive.Include);
+
+        foreach (var detector in ThumbGestureDetectors)
+        {
+            if (detector == null)
+                continue;
+
+            var state = new GestureDisplayState { Detector = detector };
+            _gestureStates.Add(state);
+
+            Subscribe(detector.OnThumbDown, () => state.ThumbPressed = true);
+            Subscribe(detector.OnThumbUp, () => state.ThumbPressed = false);
+            Subscribe(detector.OnThumbTap, () => SetGesture(state, "Thumb Tap"));
+            Subscribe(detector.OnSwipeLeft, () => SetGesture(state, "Swipe Left"));
+            Subscribe(detector.OnSwipeRight, () => SetGesture(state, "Swipe Right"));
+        }
+    }
+
+    private void OnDisable()
+    {
+        foreach (var (gestureEvent, action) in _gestureSubscriptions)
+            gestureEvent.RemoveListener(action);
+
+        _gestureSubscriptions.Clear();
+        _gestureStates.Clear();
+    }
+
+    private void Subscribe(UnityEngine.Events.UnityEvent gestureEvent, UnityEngine.Events.UnityAction action)
+    {
+        gestureEvent.AddListener(action);
+        _gestureSubscriptions.Add((gestureEvent, action));
+    }
+
+    private static void SetGesture(GestureDisplayState state, string gestureName)
+    {
+        state.LastGesture = gestureName;
+        state.LastGestureTime = Time.unscaledTime;
+    }
+
     private void Update()
     {
-        var device = DeviceManager.Device;
-        if (device == null)
-            return;
-
         StringBuilder inputStringBuilder = new StringBuilder("");
 
-        AppendDeviceInput(inputStringBuilder, device.PrimaryInputDevice, "Primary");
-        inputStringBuilder.AppendLine();
-        AppendDeviceInput(inputStringBuilder, device.SecondaryInputDevice, "Secondary");
+        var device = DeviceManager.Device;
+        if (device != null)
+        {
+            AppendDeviceInput(inputStringBuilder, device.PrimaryInputDevice, "Primary");
+            inputStringBuilder.AppendLine();
+            AppendDeviceInput(inputStringBuilder, device.SecondaryInputDevice, "Secondary");
+        }
+
+        AppendGestureInput(inputStringBuilder);
 
         InputText.text = inputStringBuilder.ToString();
+    }
+
+    public void AppendGestureInput(StringBuilder builder)
+    {
+        foreach (var state in _gestureStates)
+        {
+            if (state.Detector == null)
+                continue;
+
+            var hand = state.Detector.useRightHand ? "R" : "L";
+            builder.AppendLine();
+            builder.AppendLine($"[{hand}] Thumb Pressed: {state.ThumbPressed}");
+            builder.AppendLine($"[{hand}] Joystick: {(state.Detector.JoystickActive ? state.Detector.JoystickAxis.ToString("F2") : "inactive")}");
+
+            var age = Time.unscaledTime - state.LastGestureTime;
+            builder.AppendLine(float.IsInfinity(age)
+                ? $"[{hand}] Last Gesture: None"
+                : $"[{hand}] Last Gesture: {state.LastGesture} ({age:F1}s ago)");
+        }
     }
 
     public void SetControllerVisibility(bool state)

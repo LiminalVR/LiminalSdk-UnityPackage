@@ -1,6 +1,7 @@
 using Unity.XR.CoreUtils;
 using UnityEngine;
 using UnityEngine.InputSystem.XR;
+using UnityEngine.XR.Hands.Samples.VisualizerSample;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.UI;
 
@@ -20,24 +21,29 @@ namespace Liminal.SDK.V2
         public XROrigin XROrigin;
         public GameObject XRRig;
 
-        public Transform RigRightHand;
-        public Transform RigLeftHand;
-
-        public Transform RigRightHandTracked;
-        public Transform RigLeftHandTracked;
-
+        public TrackedPoseDriver OriginalTrackedPoseDriver;
         public Transform CameraOffset;
 
-        public Transform RigRightHandVisual;
-        public Transform RigLeftHandVisual;
+
+        [Header("Controllers")]
+        public Transform RightController;
+        public Transform LeftController;
 
 
-        public TrackedPoseDriver OriginalTrackedPoseDriver;
+        public Transform RightControllerVisual;
+        public Transform LeftControllerVisual;
 
         public XRRayInteractor RightControllerRayInteractor;
         public XRRayInteractor LeftControllerRayInteractor;
 
+        [Header("Hands")]
+
+        public Transform RightHand;
+        public Transform LeftHand;
+
         public XRRayInteractor RightHandRayInteractor;
         public XRRayInteractor LeftHandRayInteractor;
+
+        public HandVisualizer HandVisualizer;
     }
 }
