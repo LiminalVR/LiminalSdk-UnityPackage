@@ -69,6 +69,9 @@ namespace UnityEngine.XR.Hands.Samples.VisualizerSample
         bool m_DrawMeshes;
         bool m_PreviousDrawMeshes;
 
+        bool m_LeftHandMeshVisible = true;
+        bool m_RightHandMeshVisible = true;
+
         /// <summary>
         /// Tells the Hand Visualizer to draw the meshes for the hands.
         /// </summary>
@@ -76,6 +79,28 @@ namespace UnityEngine.XR.Hands.Samples.VisualizerSample
         {
             get => m_DrawMeshes;
             set => m_DrawMeshes = value;
+        }
+
+        /// <summary>
+        /// Per-hand visibility override for the hand meshes. A hand mesh is only drawn
+        /// while both <see cref="drawMeshes"/> and its per-hand flag are enabled.
+        /// </summary>
+        public void SetHandMeshVisible(Handedness handedness, bool visible)
+        {
+            switch (handedness)
+            {
+                case Handedness.Left:
+                    m_LeftHandMeshVisible = visible;
+                    if (m_LeftHandGameObjects != null)
+                        m_LeftHandGameObjects.ToggleDrawMesh(m_DrawMeshes && visible);
+                    break;
+
+                case Handedness.Right:
+                    m_RightHandMeshVisible = visible;
+                    if (m_RightHandGameObjects != null)
+                        m_RightHandGameObjects.ToggleDrawMesh(m_DrawMeshes && visible);
+                    break;
+            }
         }
 
         [SerializeField]
@@ -287,7 +312,8 @@ namespace UnityEngine.XR.Hands.Samples.VisualizerSample
             if (handGameObjects == null)
                 return;
 
-            handGameObjects.ToggleDrawMesh(m_DrawMeshes);
+            var meshVisible = handGameObjects == m_LeftHandGameObjects ? m_LeftHandMeshVisible : m_RightHandMeshVisible;
+            handGameObjects.ToggleDrawMesh(m_DrawMeshes && meshVisible);
             handGameObjects.ToggleDebugDrawJoints(m_DebugDrawJoints && isTracked);
             handGameObjects.SetVelocityType(isTracked ? m_VelocityType : VelocityType.None);
         }
@@ -334,8 +360,8 @@ namespace UnityEngine.XR.Hands.Samples.VisualizerSample
 
             if (m_PreviousDrawMeshes != m_DrawMeshes)
             {
-                m_LeftHandGameObjects.ToggleDrawMesh(m_DrawMeshes);
-                m_RightHandGameObjects.ToggleDrawMesh(m_DrawMeshes);
+                m_LeftHandGameObjects.ToggleDrawMesh(m_DrawMeshes && m_LeftHandMeshVisible);
+                m_RightHandGameObjects.ToggleDrawMesh(m_DrawMeshes && m_RightHandMeshVisible);
                 m_PreviousDrawMeshes = m_DrawMeshes;
             }
 

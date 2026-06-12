@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Liminal.SDK.VR;
 using Liminal.SDK.VR.Input;
 using UnityEngine;
+using UnityEngine.XR.Hands;
 using UnityEngine.XR.Hands.Samples.VisualizerSample;
 using UnityEngine.XR.Interaction.Toolkit.Inputs;
 
@@ -50,6 +51,41 @@ namespace Liminal.SDK.V2
         private bool _customBaseRotationsCached;
 
         public static bool IsHandTracking => XRInputModalityManager.currentInputMode.Value == XRInputModalityManager.InputMode.TrackedHand;
+
+        /// <summary>
+        /// The active controller manager — the platform's when running inside the platform,
+        /// otherwise the limapp's own.
+        /// </summary>
+        public static LiminalControllerManager Current
+        {
+            get
+            {
+                var app = ExperienceAppManager.PlatformInstance != null
+                    ? ExperienceAppManager.PlatformInstance
+                    : ExperienceAppManager.LimappInstance;
+
+                return app != null ? app.ControllerManager : null;
+            }
+        }
+
+        /// <summary>
+        /// True while the given hand has live hand-tracking data. Always false when
+        /// no hand subsystem is running (e.g. using controllers).
+        /// </summary>
+        public bool IsHandTracked(VRInputDeviceHand hand)
+        {
+            var visualizer = XRRigReferences != null ? XRRigReferences.HandVisualizer : null;
+            var subsystem = visualizer != null ? visualizer.subsystem : null;
+            if (subsystem == null)
+                return false;
+
+            switch (hand)
+            {
+                case VRInputDeviceHand.Left: return subsystem.leftHand.isTracked;
+                case VRInputDeviceHand.Right: return subsystem.rightHand.isTracked;
+                default: return false;
+            }
+        }
 
         public List<GameObject> HideWhenUsingHands;
 
@@ -138,6 +174,27 @@ namespace Liminal.SDK.V2
             var visualizer = XRRigReferences != null ? XRRigReferences.HandVisualizer : null;
             if (visualizer != null)
                 visualizer.drawMeshes = active;
+        }
+
+        public void SetHandMeshActive(VRInputDeviceHand hand, bool active)
+        {
+            var visualizer = XRRigReferences != null ? XRRigReferences.HandVisualizer : null;
+            if (visualizer == null)
+                return;
+
+            switch (hand)
+            {
+                case VRInputDeviceHand.Left:
+                    visualizer.SetHandMeshVisible(Handedness.Left, active);
+                    break;
+                case VRInputDeviceHand.Right:
+                    visualizer.SetHandMeshVisible(Handedness.Right, active);
+                    break;
+                case VRInputDeviceHand.None:
+                default:
+                    Debug.LogWarning($"Trying to set hand mesh active for hand type NONE or unknown. Hand: {hand}");
+                    break;
+            }
         }
 
         public void SetHandPointerActive(VRInputDeviceHand hand, bool active)
