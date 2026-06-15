@@ -50,7 +50,33 @@ namespace Liminal.SDK.V2
         private Quaternion _customRightBaseLocalRotation;
         private bool _customBaseRotationsCached;
 
-        public static bool IsHandTracking => XRInputModalityManager.currentInputMode.Value == XRInputModalityManager.InputMode.TrackedHand;
+        // There is one hand subsystem per process no matter how many XR rigs are spawned,
+        // so read hand-tracking state straight from it. XRInputModalityManager.currentInputMode
+        // is a *static* shared by every rig's modality manager; with multiple rigs the last
+        // manager to change mode wins, so it can report TrackedHand while the rig you're using
+        // has no tracked hands (and vice versa). The running hand subsystem is the single
+        // source of truth, and keeps IsHandTracking and IsHandTracked() consistent.
+        private static readonly List<XRHandSubsystem> s_HandSubsystems = new List<XRHandSubsystem>();
+
+        private static XRHandSubsystem RunningHandSubsystem()
+        {
+            SubsystemManager.GetSubsystems(s_HandSubsystems);
+            for (int i = 0; i < s_HandSubsystems.Count; i++)
+            {
+                if (s_HandSubsystems[i].running)
+                    return s_HandSubsystems[i];
+            }
+            return null;
+        }
+
+        public static bool IsHandTracking
+        {
+            get
+            {
+                var subsystem = RunningHandSubsystem();
+                return subsystem != null && (subsystem.leftHand.isTracked || subsystem.rightHand.isTracked);
+            }
+        }
 
         /// <summary>
         /// The active controller manager — the platform's when running inside the platform,
@@ -70,12 +96,13 @@ namespace Liminal.SDK.V2
 
         /// <summary>
         /// True while the given hand has live hand-tracking data. Always false when
-        /// no hand subsystem is running (e.g. using controllers).
+        /// no hand subsystem is running (e.g. using controllers). Reads the running hand
+        /// subsystem directly rather than a single rig's visualizer, so it stays correct
+        /// when multiple rigs are spawned.
         /// </summary>
         public bool IsHandTracked(VRInputDeviceHand hand)
         {
-            var visualizer = XRRigReferences != null ? XRRigReferences.HandVisualizer : null;
-            var subsystem = visualizer != null ? visualizer.subsystem : null;
+            var subsystem = RunningHandSubsystem();
             if (subsystem == null)
                 return false;
 

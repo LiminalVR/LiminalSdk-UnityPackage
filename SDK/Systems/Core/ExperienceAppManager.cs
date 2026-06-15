@@ -283,12 +283,17 @@ namespace Liminal.SDK.V2
             if (AvatarRightHand == null || SpawnedRig == null)
                 return;
 
-            var mode = XRInputModalityManager.currentInputMode.Value;
-            var rightHand = mode == XRInputModalityManager.InputMode.TrackedHand
+            // Use the SDK's hand-tracking check (which reads the running hand subsystem) rather
+            // than XRInputModalityManager.currentInputMode directly. That mode is a process-wide
+            // static every spawned rig's modality manager writes to, so with multiple rigs it can
+            // report the wrong modality and sync the avatar hands from the hand transform when the
+            // user is on controllers (or vice versa), throwing off hand positions.
+            bool handTracking = LiminalControllerManager.IsHandTracking;
+            var rightHand = handTracking
                 ? SpawnedRig.RightHand
                 : SpawnedRig.RightController;
 
-            var leftHand = mode == XRInputModalityManager.InputMode.TrackedHand
+            var leftHand = handTracking
                 ? SpawnedRig.LeftHand
                 : SpawnedRig.LeftController;
 
