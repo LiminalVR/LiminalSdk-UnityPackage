@@ -37,10 +37,20 @@ namespace Liminal.SDK.V2
         public GameObject AvatarCustomRightHandMesh;
 
         [Header("Custom Mesh Hand-Tracking Local Rotation")]
+        [Tooltip("When off (default), the custom hand meshes' rotation is left untouched. When on, the rotations below are applied while Hand Tracking is active.")]
+        public bool ApplyCustomRotation = false;
         [Tooltip("Local rotation applied to the custom left hand mesh while Hand Tracking is active. Ignored when using controllers.")]
         public Vector3 CustomLeftHandTrackingRotation = new Vector3(-20f, 0f, -90f);
         [Tooltip("Local rotation applied to the custom right hand mesh while Hand Tracking is active. Ignored when using controllers.")]
         public Vector3 CustomRightHandTrackingRotation = new Vector3(-20f, 0f, 90f);
+
+        [Header("Custom Mesh Hand-Tracking Local Position Offset")]
+        [Tooltip("When off (default), the custom hand meshes' position is left untouched. When on, the offsets below are applied while Hand Tracking is active.")]
+        public bool ApplyCustomPosition = false;
+        [Tooltip("Local position offset added to the custom left hand mesh's rest position while Hand Tracking is active. Ignored when using controllers.")]
+        public Vector3 CustomLeftHandTrackingPositionOffset = Vector3.zero;
+        [Tooltip("Local position offset added to the custom right hand mesh's rest position while Hand Tracking is active. Ignored when using controllers.")]
+        public Vector3 CustomRightHandTrackingPositionOffset = Vector3.zero;
 
         [Header("Defaults applied on Awake")]
         public EControllerDisplay LeftDefault = EControllerDisplay.All;
@@ -48,7 +58,9 @@ namespace Liminal.SDK.V2
 
         private Quaternion _customLeftBaseLocalRotation;
         private Quaternion _customRightBaseLocalRotation;
-        private bool _customBaseRotationsCached;
+        private Vector3 _customLeftBaseLocalPosition;
+        private Vector3 _customRightBaseLocalPosition;
+        private bool _customBaseTransformsCached;
 
         // There is one hand subsystem per process no matter how many XR rigs are spawned,
         // so read hand-tracking state straight from it. XRInputModalityManager.currentInputMode
@@ -124,7 +136,7 @@ namespace Liminal.SDK.V2
 
         private void LateUpdate()
         {
-            ApplyCustomMeshHandTrackingRotation();
+            ApplyCustomMeshHandTrackingTransform();
 
             foreach (var go in HideWhenUsingHands)
             {
@@ -133,29 +145,52 @@ namespace Liminal.SDK.V2
             }
         }
 
-        private void ApplyCustomMeshHandTrackingRotation()
+        private void ApplyCustomMeshHandTrackingTransform()
         {
-            if (!_customBaseRotationsCached)
+            // Off by default: leave the meshes untouched unless an override is enabled.
+            if (!ApplyCustomRotation && !ApplyCustomPosition)
+                return;
+
+            if (!_customBaseTransformsCached)
             {
                 if (AvatarCustomLeftHandMesh != null)
+                {
                     _customLeftBaseLocalRotation = AvatarCustomLeftHandMesh.transform.localRotation;
+                    _customLeftBaseLocalPosition = AvatarCustomLeftHandMesh.transform.localPosition;
+                }
                 if (AvatarCustomRightHandMesh != null)
+                {
                     _customRightBaseLocalRotation = AvatarCustomRightHandMesh.transform.localRotation;
-                _customBaseRotationsCached = true;
+                    _customRightBaseLocalPosition = AvatarCustomRightHandMesh.transform.localPosition;
+                }
+                _customBaseTransformsCached = true;
             }
+
+            // Cache once: IsHandTracking polls the subsystem list, so avoid calling it per mesh.
+            bool handTracking = IsHandTracking;
 
             if (AvatarCustomLeftHandMesh != null)
             {
-                AvatarCustomLeftHandMesh.transform.localRotation = IsHandTracking
-                    ? Quaternion.Euler(CustomLeftHandTrackingRotation)
-                    : _customLeftBaseLocalRotation;
+                if (ApplyCustomRotation)
+                    AvatarCustomLeftHandMesh.transform.localRotation = handTracking
+                        ? Quaternion.Euler(CustomLeftHandTrackingRotation)
+                        : _customLeftBaseLocalRotation;
+                if (ApplyCustomPosition)
+                    AvatarCustomLeftHandMesh.transform.localPosition = handTracking
+                        ? _customLeftBaseLocalPosition + CustomLeftHandTrackingPositionOffset
+                        : _customLeftBaseLocalPosition;
             }
 
             if (AvatarCustomRightHandMesh != null)
             {
-                AvatarCustomRightHandMesh.transform.localRotation = IsHandTracking
-                    ? Quaternion.Euler(CustomRightHandTrackingRotation)
-                    : _customRightBaseLocalRotation;
+                if (ApplyCustomRotation)
+                    AvatarCustomRightHandMesh.transform.localRotation = handTracking
+                        ? Quaternion.Euler(CustomRightHandTrackingRotation)
+                        : _customRightBaseLocalRotation;
+                if (ApplyCustomPosition)
+                    AvatarCustomRightHandMesh.transform.localPosition = handTracking
+                        ? _customRightBaseLocalPosition + CustomRightHandTrackingPositionOffset
+                        : _customRightBaseLocalPosition;
             }
         }
 

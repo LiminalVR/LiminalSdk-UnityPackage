@@ -170,6 +170,13 @@ namespace UnityEditor.XR.Interaction.Toolkit.Samples.Hands.Editor
         [InitializeOnLoadMethod]
         static void RegisterProjectValidationRules()
         {
+            // Liminal: these samples are vendored into the SDK, so the stock validation rules
+            // (which expect the samples/packages in their default locations) only produce false
+            // positives and force the Project Settings window open on every domain reload.
+            // Skip registering the rules entirely.
+            return;
+
+#pragma warning disable CS0162 // Unreachable code detected
             foreach (var buildTargetGroup in s_BuildTargetGroups)
             {
                 BuildValidator.AddRules(buildTargetGroup, s_BuildValidationRules);
@@ -177,6 +184,7 @@ namespace UnityEditor.XR.Interaction.Toolkit.Samples.Hands.Editor
 
             // Delay evaluating conditions for issues to give time for Package Manager and UPM cache to fully initialize.
             EditorApplication.delayCall += ShowWindowIfIssuesExist;
+#pragma warning restore CS0162
         }
 
         static void ShowWindowIfIssuesExist()

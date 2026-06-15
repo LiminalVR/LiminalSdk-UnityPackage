@@ -60,9 +60,17 @@ namespace UnityEditor.XR.Interaction.Toolkit.Samples
         [InitializeOnLoadMethod]
         static void RegisterProjectValidationRules()
         {
+            // Liminal: these samples are vendored into the SDK, so the stock validation rules
+            // (which expect the samples/packages in their default locations) only produce false
+            // positives and force the Project Settings window open on every domain reload.
+            // Skip registering the rules entirely.
+            return;
+
             // In the Player Settings UI we have to delay the call one frame to let the settings provider get initialized
             // since we need to access the settings asset to set the rule's non-delegate properties (FixItAutomatic).
+#pragma warning disable CS0162 // Unreachable code detected
             EditorApplication.delayCall += AddRulesAndRunCheck;
+#pragma warning restore CS0162
         }
 
         static void AddRulesAndRunCheck()
