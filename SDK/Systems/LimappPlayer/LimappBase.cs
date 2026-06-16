@@ -387,30 +387,26 @@ namespace App.Core
 
                 onStatus?.Invoke("Checking");
 
-                // --- Detect a new upload via the object's ETag/Last-Modified ---
+                // Best-effort version check. UnityWebRequest HEAD is unreliable on Android, so probe with a
+                // tiny ranged GET (1 byte) to read the object's ETag/Last-Modified. A probe failure must NOT
+                // stop the download — it only means we can't tell whether a cached copy is already current.
                 string remoteTag = null;
-                var headOk = false;
-                using (var head = UnityWebRequest.Head(url))
+                using (var probe = UnityWebRequest.Get(url))
                 {
-                    yield return head.SendWebRequest();
-                    headOk = head.result == UnityWebRequest.Result.Success;
-                    if (headOk)
-                        remoteTag = head.GetResponseHeader("ETag") ?? head.GetResponseHeader("Last-Modified");
+                    probe.SetRequestHeader("Range", "bytes=0-0");
+                    yield return probe.SendWebRequest();
+                    if (probe.result == UnityWebRequest.Result.Success)
+                        remoteTag = probe.GetResponseHeader("ETag") ?? probe.GetResponseHeader("Last-Modified");
                     else
-                        Debug.LogWarning($"[Limapp] Version check failed for {id} ({head.responseCode}): {head.error}");
+                        Debug.LogWarning($"[Limapp] Version check failed for {id} ({probe.responseCode}): {probe.error} — will still try to download.");
                 }
 
                 var haveExtract = Directory.Exists(extractDir);
                 var localTag = File.Exists(markerPath) ? File.ReadAllText(markerPath).Trim() : null;
 
-                if (!headOk)
-                {
-                    // Offline or missing object: use the cached copy if we have one.
-                    if (!haveExtract)
-                        Debug.LogError($"[Limapp] {id} is not downloaded and could not be reached on S3 ({url}).");
-                    yield break;
-                }
-
+                // Download when there's no local copy, no recorded version, or the remote tag changed. When
+                // the version check failed (remoteTag == null) a valid cached copy is kept, but with no cache
+                // we still attempt the download rather than giving up.
                 var needDownload = !haveExtract
                     || string.IsNullOrEmpty(localTag)
                     || (remoteTag != null && remoteTag != localTag);
@@ -424,10 +420,9 @@ namespace App.Core
                 onStatus?.Invoke(haveExtract ? "Updating" : "Downloading");
                 Debug.Log($"[Limapp] {(haveExtract ? "Updating" : "Downloading")} {id} from {url}");
 
-                // Replace any stale copy entirely so the new version fully takes over.
+                // Download to a fresh zip. The existing extract is left in place until the download succeeds
+                // (TryExtract wipes it just before extracting), so a failed download keeps the previous copy.
                 TryDelete(() => { if (File.Exists(zipPath)) File.Delete(zipPath); });
-                TryDelete(() => { if (Directory.Exists(extractDir)) Directory.Delete(extractDir, recursive: true); });
-                TryDelete(() => { if (File.Exists(markerPath)) File.Delete(markerPath); });
 
                 using (var www = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET))
                 {
@@ -445,6 +440,11 @@ namespace App.Core
                         TryDelete(() => { if (File.Exists(zipPath)) File.Delete(zipPath); });
                         yield break;
                     }
+
+                    // If the probe didn't yield a tag, take the download's ETag so later runs can still
+                    // detect a new upload.
+                    if (string.IsNullOrEmpty(remoteTag))
+                        remoteTag = www.GetResponseHeader("ETag") ?? www.GetResponseHeader("Last-Modified");
                 }
                 onProgress?.Invoke(1f);
 
