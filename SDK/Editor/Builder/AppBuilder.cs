@@ -233,10 +233,18 @@ namespace Liminal.SDK.Editor.Build
                 var zipFile = new FileInfo(zipPath);
                 Debug.LogFormat("[Liminal.Build] Build completed in {0:0.00}s. Size: {1:0.00}mb, Output: {2}", sw.Elapsed.TotalSeconds, BytesToMb(zipFile.Length), zipPath);
 
-                // Auto-stage to configured deploy targets. Must run before RevealInFinder/ExitGUI in
-                // the finally so the ExitGUIException doesn't unwind past it.
-                if (LiminalUserSettings.AutoCopyAfterBuild)
-                    SettingsWindow.CopyLatestBuildToAllConfiguredTargets();
+                // Auto-stage to configured deploy targets. StreamingAssets and DLL copies are gated
+                // independently. Must run before RevealInFinder/ExitGUI in the finally so the
+                // ExitGUIException doesn't unwind past it.
+                if (LiminalUserSettings.AutoCopyAfterBuild || LiminalUserSettings.AutoCopyDllAfterBuild)
+                    SettingsWindow.CopyLatestBuildToAllConfiguredTargets(
+                        copyStreamingAssets: LiminalUserSettings.AutoCopyAfterBuild,
+                        copyDll: LiminalUserSettings.AutoCopyDllAfterBuild);
+
+                // Opt-in: upload the freshly built zip(s) to S3 (Upload tab settings). Failures are logged
+                // but don't fail the build.
+                if (S3UploaderSettings.AutoUploadAfterBuild)
+                    S3BuildUploader.TryUploadBuild(appManifest.Id);
 
                 if (LiminalUserSettings.RevealInFinderAfterBuild)
                     EditorUtility.RevealInFinder(zipPath);

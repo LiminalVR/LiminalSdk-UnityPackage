@@ -41,6 +41,16 @@ namespace Liminal.SDK.Build
             set => EditorPrefs.SetBool(KeyPrefix + nameof(AutoCopyAfterBuild), value);
         }
 
+        /// <summary>
+        /// Whether a finished build mirrors the app DLL into the configured DLL destination folders.
+        /// Independent of <see cref="AutoCopyAfterBuild"/> so the DLL can still copy with StreamingAssets off.
+        /// </summary>
+        public static bool AutoCopyDllAfterBuild
+        {
+            get => EditorPrefs.GetBool(KeyPrefix + nameof(AutoCopyDllAfterBuild), true);
+            set => EditorPrefs.SetBool(KeyPrefix + nameof(AutoCopyDllAfterBuild), value);
+        }
+
         public static bool RevealInFinderAfterBuild
         {
             get => EditorPrefs.GetBool(KeyPrefix + nameof(RevealInFinderAfterBuild), false);

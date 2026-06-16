@@ -185,8 +185,12 @@ namespace Liminal.SDK.Build
             GUILayout.BeginVertical(EditorStyles.helpBox);
             {
                 LiminalUserSettings.AutoCopyAfterBuild = EditorGUILayout.ToggleLeft(
-                    new GUIContent("Auto Copy after Build", "Run 'Copy Latest Build' to all configured targets when a build finishes."),
+                    new GUIContent("Auto Copy StreamingAssets after Build", "Copy the built scene bundle into each configured target's StreamingAssets/Limapps folder when a build finishes."),
                     LiminalUserSettings.AutoCopyAfterBuild);
+
+                LiminalUserSettings.AutoCopyDllAfterBuild = EditorGUILayout.ToggleLeft(
+                    new GUIContent("Auto Copy DLL after Build", "Mirror the built app DLL into each configured target's DLL destination folder when a build finishes. Independent of the StreamingAssets copy."),
+                    LiminalUserSettings.AutoCopyDllAfterBuild);
 
                 LiminalUserSettings.RevealInFinderAfterBuild = EditorGUILayout.ToggleLeft(
                     new GUIContent("Reveal in Finder after Build", "Open the build output folder when a build finishes."),
@@ -244,8 +248,19 @@ namespace Liminal.SDK.Build
 
                     GUILayout.Space(2);
 
+                    EditorGUILayout.BeginHorizontal();
                     if (GUILayout.Button("Copy Latest Build", GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.3f)))
                         CopyLatestBuildTo(streamingAssetsRoot, dllFolder, config);
+
+                    using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(dllFolder)))
+                    {
+                        if (GUILayout.Button(
+                                new GUIContent("Copy DLL", "Copy only the app DLL into the 'Mirror DLL to' folder, skipping StreamingAssets."),
+                                GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.3f),
+                                GUILayout.Width(90)))
+                            CopyLatestBuildTo(streamingAssetsRoot, dllFolder, config, copyStreamingAssets: false, copyDll: true);
+                    }
+                    EditorGUILayout.EndHorizontal();
                 }
             }
             GUILayout.EndVertical();
@@ -366,7 +381,7 @@ namespace Liminal.SDK.Build
         /// destinations. Silent when no build output exists yet (e.g. the build was for a single
         /// platform) — exceptions still surface via the standard error dialog.
         /// </summary>
-        public static void CopyLatestBuildToAllConfiguredTargets()
+        public static void CopyLatestBuildToAllConfiguredTargets(bool copyStreamingAssets = true, bool copyDll = true)
         {
             // Settings tab auto-populates this on first draw; if the user goes straight from a fresh
             // install to the Build button, it's still empty here. Resolve once so the SDK target
@@ -385,7 +400,9 @@ namespace Liminal.SDK.Build
                     streamingRoot,
                     LiminalUserSettings.SdkDllDestinationFolder,
                     config: null,
-                    silentIfMissing: true);
+                    silentIfMissing: true,
+                    copyStreamingAssets: copyStreamingAssets,
+                    copyDll: copyDll);
             }
             else
             {
@@ -401,7 +418,9 @@ namespace Liminal.SDK.Build
                     streamingRoot,
                     LiminalUserSettings.PlatformAppDllDestinationFolder,
                     config: null,
-                    silentIfMissing: true);
+                    silentIfMissing: true,
+                    copyStreamingAssets: copyStreamingAssets,
+                    copyDll: copyDll);
             }
             else
             {
@@ -409,8 +428,11 @@ namespace Liminal.SDK.Build
             }
         }
 
-        private static void CopyLatestBuildTo(string streamingAssetsRoot, string dllFolder, BuildWindowConfig config, bool silentIfMissing = false)
+        private static void CopyLatestBuildTo(string streamingAssetsRoot, string dllFolder, BuildWindowConfig config, bool silentIfMissing = false, bool copyStreamingAssets = true, bool copyDll = true)
         {
+            if (!copyStreamingAssets && !copyDll)
+                return;
+
             try
             {
                 var manifest = AppBuilder.ReadAppManifest();
@@ -438,23 +460,26 @@ namespace Liminal.SDK.Build
                     return;
                 }
 
-                if (string.IsNullOrEmpty(streamingAssetsRoot))
-                    throw new Exception("StreamingAssets destination could not be resolved.");
-
                 // Standalone falls back to Android when no Standalone build exists. Android does not
                 // fall back to Standalone — if only Standalone was built, the Android slot is skipped.
                 var androidEffective = hasAndroid ? androidSrc : null;
                 var standaloneEffective = hasStandalone ? standaloneSrc : (hasAndroid ? androidSrc : null);
 
-                if (androidEffective != null)
-                    CopyOutput("Android", androidEffective, streamingAssetsRoot, manifest);
+                if (copyStreamingAssets)
+                {
+                    if (string.IsNullOrEmpty(streamingAssetsRoot))
+                        throw new Exception("StreamingAssets destination could not be resolved.");
 
-                if (standaloneEffective != null)
-                    CopyOutput("Standalone", standaloneEffective, streamingAssetsRoot, manifest);
+                    if (androidEffective != null)
+                        CopyOutput("Android", androidEffective, streamingAssetsRoot, manifest);
+
+                    if (standaloneEffective != null)
+                        CopyOutput("Standalone", standaloneEffective, streamingAssetsRoot, manifest);
+                }
 
                 // Single flat DLL copy. Prefer Standalone (matches the editor's player target); fall back
                 // to Android if Standalone wasn't built.
-                if (!string.IsNullOrEmpty(dllFolder))
+                if (copyDll && !string.IsNullOrEmpty(dllFolder))
                 {
                     var dllSrcFolder = standaloneEffective ?? androidEffective;
                     if (dllSrcFolder != null)

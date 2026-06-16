@@ -63,6 +63,24 @@ namespace Liminal.SDK.Build
 
         public override void DrawFooter(BuildWindowConfig config)
         {
+            LiminalUserSettings.AutoCopyAfterBuild = EditorGUILayout.ToggleLeft(
+                new GUIContent("Copy to StreamingAssets after Build",
+                    "When on, a finished build's scene bundle is copied into the configured targets' " +
+                    "StreamingAssets/Limapps folders. Configure targets in the Settings tab."),
+                LiminalUserSettings.AutoCopyAfterBuild);
+
+            LiminalUserSettings.AutoCopyDllAfterBuild = EditorGUILayout.ToggleLeft(
+                new GUIContent("Copy DLL after Build",
+                    "When on, the built app DLL is mirrored into the configured DLL destination folders. " +
+                    "Independent of the StreamingAssets copy above."),
+                LiminalUserSettings.AutoCopyDllAfterBuild);
+
+            S3UploaderSettings.AutoUploadAfterBuild = EditorGUILayout.ToggleLeft(
+                new GUIContent("Upload to S3 after Build",
+                    "When on, the finished build's Android + Standalone zips are uploaded to S3 using the " +
+                    "Upload tab's credentials/settings (Standalone falls back to the Android build). Off by default."),
+                S3UploaderSettings.AutoUploadAfterBuild);
+
             GUI.enabled = !EditorApplication.isCompiling && _validation.CanBuild;
             var buildClicked = GUILayout.Button("Build", GUILayout.Height(EditorGUIUtility.singleLineHeight * 1.5f));
             GUI.enabled = !EditorApplication.isCompiling;

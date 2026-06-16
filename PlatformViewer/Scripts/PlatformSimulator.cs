@@ -92,7 +92,7 @@ namespace App.Simulator
                 instance.Bind(experienceId);
                 instance.Button.onClick.AddListener(() => {
                     CleanPreviousAvatar();
-                    StartCoroutine(LoadLimapp(experienceId)); 
+                    StartCoroutine(LoadLimapp(experienceId, instance));
                 });
             }
 
@@ -108,9 +108,25 @@ namespace App.Simulator
         /// interactors register against the simulator's manager, leaving them orphaned from their own
         /// interactables.
         /// </summary>
-        private IEnumerator LoadLimapp(int experienceId)
+        private IEnumerator LoadLimapp(int experienceId, ExperienceSimulatorIconButton button)
         {
             yield return null; // let Destroy() settle before the limapp scene activates
+
+            // Download / update the limapp from S3 into persistentDataPath before playing. Re-checks the
+            // S3 version each time, so a freshly uploaded build is pulled down automatically.
+            var defaultLabel = button != null ? button.Label.text : experienceId.ToString();
+            yield return LimappBase.EnsureLatest(experienceId,
+                onProgress: p => { if (button != null) button.Label.text = $"{experienceId}\n{p * 100f:0}%"; },
+                onStatus: s => { if (button != null) button.Label.text = $"{experienceId}\n{s}"; });
+            if (button != null)
+                button.Label.text = defaultLabel;
+
+            if (!LimappBase.IsContentAvailable(experienceId))
+            {
+                Debug.LogError($"[Simulator] Experience {experienceId} could not be downloaded — aborting play.");
+                yield break;
+            }
+
             yield return LimappPlayer.Play(new LimappBase(experienceId));
         }
 

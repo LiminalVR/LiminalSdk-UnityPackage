@@ -130,11 +130,14 @@ namespace App.Core
             LogMemory("[Loading]");
             _avatarBefore = VRAvatar.Active;
 
-            // StreamingAssets takes precedence over persistentDataPath if a folder is present there.
+            // Prefer a downloaded copy in persistentDataPath so re-downloads / updates take effect;
+            // fall back to a StreamingAssets-shipped copy only when there's no download.
+            var persistentFolder = GetLimappPath(Id);
             var streamingAssetFolderPath = $"Limapps/{GetPlatformName()}/{Id}";
-            var useStreamingAsset = BetterStreamingAssets.DirectoryExists(streamingAssetFolderPath);
+            var useStreamingAsset = !Directory.Exists(persistentFolder)
+                && BetterStreamingAssets.DirectoryExists(streamingAssetFolderPath);
 
-            var appFolder = useStreamingAsset ? streamingAssetFolderPath : GetLimappPath(Id);
+            var appFolder = useStreamingAsset ? streamingAssetFolderPath : persistentFolder;
 
             LoadState = ELimappLoadState.LoadingAssetBundle;
 
@@ -317,10 +320,167 @@ namespace App.Core
             return false;
         }
 
+        /// <summary>Base URL for v3 limapp uploads (produced by the SDK's S3 uploader window).</summary>
+        public const string S3LimappV3BaseUrl = "https://liminal-resources.s3.ap-southeast-2.amazonaws.com/app/Limapp/v3";
+
+        /// <summary>S3 URL of the platform-specific zip for <paramref name="id"/>.</summary>
+        public static string GetExperienceUrl(int id) => $"{S3LimappV3BaseUrl}/{GetPlatformName()}/{id}.zip";
+
+        /// <summary>Path of the cached version marker (stores the downloaded object's ETag/Last-Modified).</summary>
+        private static string GetMarkerPath(int id) => $"{GetLimappFolderPath()}/{id}.etag";
+
+        // Ids whose EnsureLatest is currently running, to coalesce concurrent requests.
+        private static readonly HashSet<int> _ensuring = new HashSet<int>();
+
         public static IEnumerator DownloadAndExtractExperience(int id)
         {
-            var url = $"https://liminal-resources.s3.ap-southeast-2.amazonaws.com/app/Limapp/v2/{GetPlatformName()}/{id}.zip";
-            yield return DownloadAndExtract(url, id);
+            yield return DownloadAndExtract(GetExperienceUrl(id), id);
+        }
+
+        /// <summary>
+        /// True when <paramref name="id"/> can be loaded locally — embedded, shipped in StreamingAssets,
+        /// or already downloaded into persistentDataPath.
+        /// </summary>
+        public static bool IsContentAvailable(int id)
+        {
+            if (id == 35)
+                return true;
+            if (BetterStreamingAssets.DirectoryExists(GetStreamingAssetFolderPath(id)))
+                return true;
+            return Directory.Exists($"{GetLimappFolderPath()}/{id}");
+        }
+
+        /// <summary>
+        /// Ensures limapp <paramref name="id"/> is present and current in persistentDataPath before it is
+        /// played. HEADs the S3 object and compares its ETag/Last-Modified against a marker cached next to
+        /// the zip; (re)downloads and extracts only when missing or changed, wiping any stale copy first.
+        /// If S3 is unreachable, falls back to whatever is already cached.
+        /// </summary>
+        public static IEnumerator EnsureLatest(int id, Action<float> onProgress = null, Action<string> onStatus = null)
+        {
+            // Embedded experience — nothing to fetch.
+            if (id == 35)
+                yield break;
+
+            // A StreamingAssets-shipped copy is used as-is (no remote check).
+            if (BetterStreamingAssets.DirectoryExists(GetStreamingAssetFolderPath(id)))
+                yield break;
+
+            // Coalesce concurrent requests for the same id.
+            if (_ensuring.Contains(id))
+            {
+                yield return new WaitUntil(() => !_ensuring.Contains(id));
+                yield break;
+            }
+
+            _ensuring.Add(id);
+            try
+            {
+                var folder = GetLimappFolderPath();
+                if (!Directory.Exists(folder))
+                    Directory.CreateDirectory(folder);
+
+                var url = GetExperienceUrl(id);
+                var zipPath = $"{folder}/{id}.zip";
+                var extractDir = $"{folder}/{id}";
+                var markerPath = GetMarkerPath(id);
+
+                onStatus?.Invoke("Checking");
+
+                // --- Detect a new upload via the object's ETag/Last-Modified ---
+                string remoteTag = null;
+                var headOk = false;
+                using (var head = UnityWebRequest.Head(url))
+                {
+                    yield return head.SendWebRequest();
+                    headOk = head.result == UnityWebRequest.Result.Success;
+                    if (headOk)
+                        remoteTag = head.GetResponseHeader("ETag") ?? head.GetResponseHeader("Last-Modified");
+                    else
+                        Debug.LogWarning($"[Limapp] Version check failed for {id} ({head.responseCode}): {head.error}");
+                }
+
+                var haveExtract = Directory.Exists(extractDir);
+                var localTag = File.Exists(markerPath) ? File.ReadAllText(markerPath).Trim() : null;
+
+                if (!headOk)
+                {
+                    // Offline or missing object: use the cached copy if we have one.
+                    if (!haveExtract)
+                        Debug.LogError($"[Limapp] {id} is not downloaded and could not be reached on S3 ({url}).");
+                    yield break;
+                }
+
+                var needDownload = !haveExtract
+                    || string.IsNullOrEmpty(localTag)
+                    || (remoteTag != null && remoteTag != localTag);
+
+                if (!needDownload)
+                {
+                    onStatus?.Invoke("Up to date");
+                    yield break;
+                }
+
+                onStatus?.Invoke(haveExtract ? "Updating" : "Downloading");
+                Debug.Log($"[Limapp] {(haveExtract ? "Updating" : "Downloading")} {id} from {url}");
+
+                // Replace any stale copy entirely so the new version fully takes over.
+                TryDelete(() => { if (File.Exists(zipPath)) File.Delete(zipPath); });
+                TryDelete(() => { if (Directory.Exists(extractDir)) Directory.Delete(extractDir, recursive: true); });
+                TryDelete(() => { if (File.Exists(markerPath)) File.Delete(markerPath); });
+
+                using (var www = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET))
+                {
+                    www.downloadHandler = new DownloadHandlerFile(zipPath) { removeFileOnAbort = true };
+                    var op = www.SendWebRequest();
+                    while (!op.isDone)
+                    {
+                        onProgress?.Invoke(www.downloadProgress);
+                        yield return null;
+                    }
+
+                    if (www.result != UnityWebRequest.Result.Success)
+                    {
+                        Debug.LogError($"[Limapp] Download failed for {id} ({www.responseCode}): {www.error}");
+                        TryDelete(() => { if (File.Exists(zipPath)) File.Delete(zipPath); });
+                        yield break;
+                    }
+                }
+                onProgress?.Invoke(1f);
+
+                if (!TryExtract(zipPath, extractDir))
+                    yield break;
+
+                File.WriteAllText(markerPath, remoteTag ?? string.Empty);
+                onStatus?.Invoke("Ready");
+                Debug.Log($"[Limapp] {id} ready at {extractDir}");
+            }
+            finally
+            {
+                _ensuring.Remove(id);
+            }
+        }
+
+        private static bool TryExtract(string zipPath, string extractDir)
+        {
+            try
+            {
+                if (Directory.Exists(extractDir))
+                    Directory.Delete(extractDir, recursive: true);
+                ZipFile.ExtractToDirectory(zipPath, extractDir);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Limapp] Extract failed for '{zipPath}': {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void TryDelete(Action action)
+        {
+            try { action(); }
+            catch (Exception ex) { Debug.LogWarning($"[Limapp] Cleanup failed: {ex.Message}"); }
         }
 
         public static string GetPlatformName()

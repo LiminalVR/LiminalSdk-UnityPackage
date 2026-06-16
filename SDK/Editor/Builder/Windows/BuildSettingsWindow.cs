@@ -106,6 +106,7 @@ namespace Liminal.SDK.Build
             BuildSettingLookup.AddSafe(BuildSettingMenus.Build, new BuildWindow());
             BuildSettingLookup.AddSafe(BuildSettingMenus.Publishing, new PublishConfigurationWindow());
             BuildSettingLookup.AddSafe(BuildSettingMenus.Setup, new SetupWindow());
+            BuildSettingLookup.AddSafe(BuildSettingMenus.Upload, new S3UploaderWindow());
             BuildSettingLookup.AddSafe(BuildSettingMenus.Settings, new SettingsWindow());
         }
 
