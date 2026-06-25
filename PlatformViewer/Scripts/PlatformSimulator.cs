@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using App.core;
 using App.Core;
@@ -15,6 +17,7 @@ using Experience = App.Shared.Experience;
 using Liminal.SDK.V2;
 using Liminal.SDK.VR.Avatars;
 using App.PlatformViewer;
+using Liminal.Core.Fader;
 
 namespace App.Simulator
 {
@@ -23,7 +26,11 @@ namespace App.Simulator
     /// </summary>
     public class PlatformSimulator : MonoBehaviour
     {
+        [Tooltip("Auto-populated at runtime from the DLLs in DllsFolder. Any ids set here are used as a fallback when no DLLs are found (e.g. in a device build).")]
         public List<int> ExperienceIds;
+
+        [Tooltip("Folder (relative to the Assets folder) scanned for App<id>.dll files. Each DLL becomes an experience button.")]
+        public string DllsFolder = "TestApp/DLLs";
 
         public Transform Layout;
         public ExperienceSimulatorIconButton ExperienceIconButtonPrefab;
@@ -38,13 +45,38 @@ namespace App.Simulator
 
         public ExperienceSettingsMenu ExperienceSettingsMenu;
 
+        private void OnEnable()
+        {
+            // When the running experience ends itself via ExperienceApp.End(), return to the
+            // platform through the same flow as the settings menu's Quit button. Subscribed here
+            // rather than on ExperienceSettingsMenu because that menu's GameObject can be inactive,
+            // which would stop it from ever (un)subscribing; the simulator is always active.
+            Liminal.SDK.Core.ExperienceApp.OnComplete += OnExperienceComplete;
+        }
+
+        private void OnDisable()
+        {
+            Liminal.SDK.Core.ExperienceApp.OnComplete -= OnExperienceComplete;
+        }
+
+        private void OnExperienceComplete(bool completed)
+        {
+            ExperienceSettingsMenu.Exit();
+        }
 
         IEnumerator Start()
         {
             Instance = this;
+
             LimappPlayer.SetupDevice();
             BetterStreamingAssets.Initialize();
             LogStreamingAssetCheck(26);
+
+            // Drop any App<id>.dll into DllsFolder and it shows up as a button.
+            var discovered = LoadExperienceIdsFromDlls();
+            if (discovered.Count > 0)
+                ExperienceIds = discovered;
+
             SetupExperiences();
             yield return null;
         }
@@ -84,6 +116,54 @@ namespace App.Simulator
             }
         }
 
+        /// <summary>
+        /// Editor helper: scan the DLL folder and write the result into <see cref="ExperienceIds"/>
+        /// so it can be inspected/tweaked without entering play mode. Right-click the component header.
+        /// </summary>
+        [ContextMenu("Populate Experience Ids From DLLs")]
+        private void PopulateExperienceIdsFromDlls()
+        {
+            ExperienceIds = LoadExperienceIdsFromDlls();
+            Debug.Log($"[Simulator] Found {ExperienceIds.Count} experience(s): {string.Join(", ", ExperienceIds)}");
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
+
+        /// <summary>
+        /// Scans <see cref="DllsFolder"/> (relative to the Assets folder) for limapp DLLs named
+        /// like "App000000000047.dll" and returns their ids (e.g. 47), sorted and de-duplicated.
+        /// Returns an empty list when the folder is missing — e.g. in a device build — so the
+        /// serialized <see cref="ExperienceIds"/> is kept as a fallback.
+        /// </summary>
+        private List<int> LoadExperienceIdsFromDlls()
+        {
+            var ids = new List<int>();
+            var path = Path.Combine(Application.dataPath, DllsFolder);
+
+            if (!Directory.Exists(path))
+            {
+                Debug.LogWarning($"[Simulator] DLL folder '{path}' not found; using serialized ExperienceIds.");
+                return ids;
+            }
+
+            foreach (var file in Directory.GetFiles(path, "App*.dll"))
+            {
+                // GetFiles' "*.dll" can over-match (e.g. .dll.meta) on Windows, so confirm the real extension.
+                if (!file.EndsWith(".dll", System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // "App000000000047" -> "000000000047" -> 47
+                var name = Path.GetFileNameWithoutExtension(file).Substring("App".Length);
+                if (int.TryParse(name, out var id))
+                    ids.Add(id);
+                else
+                    Debug.LogWarning($"[Simulator] Could not parse experience id from '{Path.GetFileName(file)}'.");
+            }
+
+            return ids.Distinct().OrderBy(id => id).ToList();
+        }
+
         private void SetupExperiences()
         {
             foreach (var experienceId in ExperienceIds)
@@ -91,7 +171,6 @@ namespace App.Simulator
                 var instance = Instantiate(ExperienceIconButtonPrefab, Layout);
                 instance.Bind(experienceId);
                 instance.Button.onClick.AddListener(() => {
-                    CleanPreviousAvatar();
                     StartCoroutine(LoadLimapp(experienceId, instance));
                 });
             }
@@ -110,6 +189,8 @@ namespace App.Simulator
         /// </summary>
         private IEnumerator LoadLimapp(int experienceId, ExperienceSimulatorIconButton button)
         {
+            CleanPreviousAvatar();
+
             yield return null; // let Destroy() settle before the limapp scene activates
 
             // Download / update the limapp from S3 into persistentDataPath before playing. Re-checks the

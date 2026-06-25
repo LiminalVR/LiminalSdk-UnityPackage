@@ -79,6 +79,14 @@ namespace Liminal.SDK.XR
         {
             PrimaryInputDevice = new UnityXRController(VRInputDeviceHand.Right);
             SecondaryInputDevice = new UnityXRController(VRInputDeviceHand.Left);
+
+            // Populate the InputDevices collection so VRAvatarHand.InputDevice can
+            // resolve a controller by hand. Without this the list stays empty and
+            // Hand.InputDevice always returns null (mirrors OpenVRDevice/GearVRDevice).
+            mInputDevicesList.Clear();
+            mInputDevicesList.Add(PrimaryInputDevice);
+            mInputDevicesList.Add(SecondaryInputDevice);
+            InputDevices = mInputDevicesList;
         }
 
         private void UpdateHandVisibility()

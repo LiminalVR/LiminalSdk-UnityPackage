@@ -65,7 +65,7 @@ namespace Liminal.SDK.Build
             // After the per-target passes so the OpenXR settings assets exist.
             ApplyValidationFixes();
 
-            EnableXRInteractionSimulator();
+            DisableXRInteractionSimulator();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -99,12 +99,21 @@ namespace Liminal.SDK.Build
                 SetOptimizeBufferDiscards(androidOpenXRSettings, false);
             }
 
+            // Standalone (PC/Link) must use Multi Pass — Single Pass Instanced (the OpenXR default)
+            // renders incorrectly there. Android/Quest is left on Single Pass Instanced for performance.
+            var standaloneOpenXRSettings = OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Standalone);
+            if (standaloneOpenXRSettings != null && standaloneOpenXRSettings.renderMode != OpenXRSettings.RenderMode.MultiPass)
+            {
+                standaloneOpenXRSettings.renderMode = OpenXRSettings.RenderMode.MultiPass;
+                EditorUtility.SetDirty(standaloneOpenXRSettings);
+            }
+
             // [OpenXR] PoseControl / StickControl recommendations.
             foreach (var target in DefineTargets)
                 foreach (var define in ValidationDefines)
                     AddScriptingDefine(target, define);
 
-            Debug.Log("[XRSetup] Validation fixes applied: IL2CPP + ARM64, Game Activity entry point, Prioritize Input Polling, Optimize Buffer Discards disabled, PoseControl/StickControl defines.");
+            Debug.Log("[XRSetup] Validation fixes applied: IL2CPP + ARM64, Game Activity entry point, Prioritize Input Polling, Optimize Buffer Discards disabled, Standalone render mode = Multi Pass, PoseControl/StickControl defines.");
         }
 
         // m_optimizeBufferDiscards is internal on MetaQuestFeature — accessed via SerializedObject.
@@ -189,6 +198,10 @@ namespace Liminal.SDK.Build
             if (!IsOptimizeBufferDiscardsDisabled(androidOpenXRSettings))
                 return false;
 
+            var standaloneOpenXRSettings = OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Standalone);
+            if (standaloneOpenXRSettings == null || standaloneOpenXRSettings.renderMode != OpenXRSettings.RenderMode.MultiPass)
+                return false;
+
             foreach (var target in DefineTargets)
             {
                 var defines = PlayerSettings.GetScriptingDefineSymbols(target);
@@ -244,7 +257,7 @@ namespace Liminal.SDK.Build
             return true;
         }
 
-        private static void EnableXRInteractionSimulator()
+        private static void DisableXRInteractionSimulator()
         {
             var type = Type.GetType(SimulatorSettingsTypeName);
             if (type == null)
@@ -270,11 +283,11 @@ namespace Liminal.SDK.Build
                 return;
             }
 
-            prop.boolValue = true;
+            prop.boolValue = false;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(asset);
 
-            Debug.Log("[XRSetup] 'Use XR Interaction Simulator in scenes' enabled.");
+            Debug.Log("[XRSetup] 'Use XR Interaction Simulator in scenes' disabled.");
         }
 
         private static void ConfigureForBuildTarget(XRGeneralSettingsPerBuildTarget perTarget, BuildTargetGroup target)

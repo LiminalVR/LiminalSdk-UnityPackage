@@ -726,15 +726,55 @@ namespace Liminal.SDK.Build
             Debug.Log($"[Liminal.Build] Setup complete. Root asmdef '{primaryName}', shared Editor asmdef '{sharedEditorAsmdefName}', {asmrefCount} asmref(s) created, {legacyRemovedCount} legacy per-folder Editor asmdef(s) removed. Wait for Unity to finish recompiling, then run Build.");
         }
 
+        /// <summary>
+        /// Assemblies the shared Editor asmdef must reference on top of the root limapp asmdef.
+        /// Timeline's editor + runtime assemblies are needed so limapp editor scripts that touch
+        /// Timeline (custom tracks/clips, editor tooling) compile.
+        /// </summary>
+        private static readonly string[] SharedEditorExtraReferences =
+        {
+            "Unity.Timeline.Editor",
+            "Unity.Timeline",
+        };
+
         private static void CreateSharedEditorAsmdef(string folderAbsolutePath, string editorAsmdefName, string rootAsmdefName)
         {
             if (!Directory.Exists(folderAbsolutePath))
                 Directory.CreateDirectory(folderAbsolutePath);
 
             var asmdefAbs = Path.Combine(folderAbsolutePath, editorAsmdefName + ".asmdef");
+
+            // Root asmdef first, then the extra (Timeline) references.
+            var requiredRefs = new List<string> { rootAsmdefName };
+            requiredRefs.AddRange(SharedEditorExtraReferences);
+
             if (File.Exists(asmdefAbs))
             {
-                Debug.Log($"[Liminal.Build] Shared Editor asmdef already exists at {asmdefAbs}");
+                // Already exists — back-fill any missing required references (covers projects set up
+                // before these were added) without dropping references the user added themselves.
+                var existing = JsonConvert.DeserializeObject<AsmDef>(File.ReadAllText(asmdefAbs)) ?? new AsmDef();
+                existing.References ??= new List<string>();
+
+                var added = 0;
+                foreach (var reference in requiredRefs)
+                {
+                    if (!existing.References.Contains(reference))
+                    {
+                        existing.References.Add(reference);
+                        added++;
+                    }
+                }
+
+                if (added > 0)
+                {
+                    File.WriteAllText(asmdefAbs, JsonConvert.SerializeObject(existing, Formatting.Indented));
+                    AssetDatabase.ImportAsset(ToAssetPath(asmdefAbs));
+                    Debug.Log($"[Liminal.Build] Added {added} missing reference(s) to shared Editor asmdef at {asmdefAbs}");
+                }
+                else
+                {
+                    Debug.Log($"[Liminal.Build] Shared Editor asmdef already exists at {asmdefAbs}");
+                }
                 return;
             }
 
@@ -742,7 +782,7 @@ namespace Liminal.SDK.Build
             {
                 Name = editorAsmdefName,
                 AutoReferenced = true,
-                References = new List<string> { rootAsmdefName },
+                References = requiredRefs,
                 IncludePlatforms = new List<string> { "Editor" }
             };
             File.WriteAllText(asmdefAbs, JsonConvert.SerializeObject(asm, Formatting.Indented));

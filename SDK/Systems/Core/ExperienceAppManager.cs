@@ -71,10 +71,43 @@ namespace Liminal.SDK.V2
                 return null;
             }
 
-            SpawnedRig = Instantiate(rigPrefab, transform);
+            // XRI logs "Cannot register Ray Interactor ... before its containing Interaction Group is
+            // registered" when a grouped interactor's OnEnable registers before its XRInteractionGroup
+            // has. The OnEnable order within the rig isn't something we can rely on, so register in two
+            // explicit phases instead:
+            //   1. Instantiate the rig fully inactive (no OnEnable runs yet) under a throwaway holder.
+            //   2. Disable every interactor, then activate the rig so the interaction groups register
+            //      first (a group only re-registers members that are already registered, so disabled
+            //      interactors are skipped — no premature registration).
+            //   3. Re-enable the interactors; each now registers with its group already present.
+            // This is independent of component/GameObject order in the prefab.
+            var holder = new GameObject("XR_Rig_Holder");
+            holder.SetActive(false);
+
+            SpawnedRig = Instantiate(rigPrefab, holder.transform);
 
             if (SpawnedRig == null)
-                Debug.LogError("[ExperienceAppManager] Spawned rig prefab has no XRRigReferences component on its root.", SpawnedRig);
+            {
+                Debug.LogError("[ExperienceAppManager] Spawned rig prefab has no XRRigReferences component on its root.", this);
+                Destroy(holder);
+                return null;
+            }
+
+            var interactors = SpawnedRig.GetComponentsInChildren<IXRInteractor>(true);
+            foreach (var interactor in interactors)
+                if (interactor is Behaviour interactorBehaviour)
+                    interactorBehaviour.enabled = false;
+
+            // Move the rig out of the holder while still inactive, then activate it (groups register).
+            SpawnedRig.gameObject.SetActive(false);
+            SpawnedRig.transform.SetParent(transform, worldPositionStays: false);
+            Destroy(holder);
+
+            SpawnedRig.gameObject.SetActive(true);
+
+            foreach (var interactor in interactors)
+                if (interactor is Behaviour interactorBehaviour)
+                    interactorBehaviour.enabled = true;
 
             RegisterIntearctors();
 

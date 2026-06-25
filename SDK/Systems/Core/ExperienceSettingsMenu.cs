@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using App.Core;
 using App.core;
+using Liminal.Core.Fader;
 using Liminal.SDK.Core;
 using Liminal.SDK.V2;
 using Liminal.SDK.VR;
@@ -12,6 +13,9 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using System.Collections;
 using Liminal.SDK.VR.Utils;
+#if ENABLE_VR || UNITY_GAMECORE
+using UnityEngine.XR.Hands;
+#endif
 
 namespace App.PlatformViewer
 {
@@ -51,7 +55,7 @@ namespace App.PlatformViewer
 
             AcceptButton.onClick.AddListener(() =>
             {
-               Exit(); 
+               Exit();
             });
 
             DeclineButton.onClick.AddListener(() =>
@@ -60,17 +64,51 @@ namespace App.PlatformViewer
             });
         }
 
+        // Tracks the hand menu gesture state across frames so we only toggle on the rising edge,
+        // mirroring GetButtonDown for the controller menu (Back) button.
+        private bool _handMenuWasPressed;
+
         private void Update()
         {
             var device = DeviceManager.Device;
-            if (device == null)
-                return;
+            if (device != null && device.GetButtonDown(VRButton.Back))
+            {
+                ToggleState();
+            }
 
-            if (device.GetButtonDown(VRButton.Back))
+            // With hand tracking there is no Back button, so the Meta menu gesture (palm-up pinch
+            // on the non-dominant hand) stands in for it and opens/closes this exit menu.
+            if (HandMenuPressedThisFrame())
             {
                 ToggleState();
             }
         }
+
+        private bool HandMenuPressedThisFrame()
+        {
+#if ENABLE_VR || UNITY_GAMECORE
+            var pressed = IsMenuGesturePressed(MetaAimHand.left) || IsMenuGesturePressed(MetaAimHand.right);
+            var down = pressed && !_handMenuWasPressed;
+            _handMenuWasPressed = pressed;
+            return down;
+#else
+            return false;
+#endif
+        }
+
+#if ENABLE_VR || UNITY_GAMECORE
+        // The MenuPressed flag is only ever set on the non-dominant hand (the one showing the menu
+        // icon), so checking both hands is safe. Returns false when not hand tracking, since the
+        // static MetaAimHand devices are null/not added in that case.
+        private static bool IsMenuGesturePressed(MetaAimHand hand)
+        {
+            if (hand == null || !hand.added)
+                return false;
+
+            var flags = (MetaAimFlags)hand.aimFlags.ReadValue();
+            return (flags & MetaAimFlags.MenuPressed) != 0;
+        }
+#endif
 
         public void ToggleState()
         {
@@ -114,12 +152,22 @@ namespace App.PlatformViewer
             LimappExperienceAppManager.SetActive(true);
         }
 
+        // Exit can be triggered both by the Quit button and by the experience ending itself
+        // (ExperienceApp.End -> OnComplete). Guard against a second run while the first is still
+        // unloading, which would call LimappPlayer.End() again and NRE on the nulled limapp.
+        private bool _isExiting;
+
         public Coroutine Exit()
         {
+            if (_isExiting)
+                return null;
+
+            _isExiting = true;
+
             if(_isOpened)
                 Hide();
 
-            return StartCoroutine(Routine());
+            return CoroutineService.Instance.StartCoroutine(Routine());
 
             IEnumerator Routine()
             {
@@ -127,6 +175,8 @@ namespace App.PlatformViewer
 
                 SetPlatformAvatarHeadTransformToCached();
                 PlatformExperienceAppManager.SetActive(true);
+
+                _isExiting = false;
             }
         }
 

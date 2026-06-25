@@ -244,8 +244,11 @@ namespace Liminal.SDK.Build
             Action setupFix = (!v.AsmdefOk && v.ManifestOk) ? (Action)LimapPatchWindow.SetupLimappBuild : null;
             DrawCheck("Root asmdef", v.AsmdefOk, v.AsmdefDetail, fixLabel: "Setup", onFix: setupFix);
 
+            // Offer the compile action whenever the manifest/asmdef are valid, even when the DLL already
+            // exists, so a stale player DLL (e.g. one that still contains a since-deleted script) can be
+            // force-rebuilt on demand rather than being trusted because it merely exists.
             Action compileFix = null;
-            if (!v.PlayerDllOk && v.ManifestOk && v.AsmdefOk && !string.IsNullOrEmpty(v.AsmName))
+            if (v.ManifestOk && v.AsmdefOk && !string.IsNullOrEmpty(v.AsmName))
             {
                 var asmName = v.AsmName;
                 compileFix = () =>
@@ -262,7 +265,7 @@ namespace Liminal.SDK.Build
                 };
             }
             DrawCheck("Player DLL (no UNITY_EDITOR)", v.PlayerDllOk, v.PlayerDllDetail,
-                fixLabel: "Compile", onFix: compileFix);
+                fixLabel: v.PlayerDllOk ? "Recompile" : "Compile", onFix: compileFix);
 
             DrawCheck("Build target", v.TargetOk, v.TargetDetail, warningOnly: true);
             DrawCheck("Scripts not compiling", v.CompileOk, v.CompileDetail);
@@ -277,7 +280,9 @@ namespace Liminal.SDK.Build
             GUILayout.Label(icon, GUILayout.Width(20), GUILayout.Height(EditorGUIUtility.singleLineHeight));
             EditorGUILayout.LabelField(label, GUILayout.Width(220));
             EditorGUILayout.LabelField(detail, EditorStyles.miniLabel);
-            if (!ok && onFix != null && !string.IsNullOrEmpty(fixLabel))
+            // Render the fix button whenever an action is supplied (not only on failure) so passing checks
+            // can still expose an on-demand action such as a forced player DLL recompile.
+            if (onFix != null && !string.IsNullOrEmpty(fixLabel))
             {
                 if (GUILayout.Button(fixLabel, GUILayout.Width(80)))
                     onFix();

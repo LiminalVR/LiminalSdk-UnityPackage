@@ -1,5 +1,6 @@
 using System;
 using Liminal.Systems;
+using TMPro;
 using UnityEngine;
 
 namespace Liminal.SDK.V2

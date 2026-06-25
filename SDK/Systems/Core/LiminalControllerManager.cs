@@ -91,6 +91,18 @@ namespace Liminal.SDK.V2
         }
 
         /// <summary>
+        /// Fires when hand-tracking starts or stops (true = hands now tracked). Static to match
+        /// <see cref="IsHandTracking"/>, so consumers can subscribe without holding a manager
+        /// reference. Driven by the LateUpdate poll below, so it catches hands coming online a few
+        /// frames after Start (common in-editor) as well as the user switching between hands and
+        /// controllers at runtime. Subscribers must unsubscribe (e.g. in OnDisable) to avoid leaking
+        /// across limapp load/unload and domain reloads.
+        /// </summary>
+        public static event Action<bool> HandTrackingChanged;
+
+        private static bool s_handTracking;
+
+        /// <summary>
         /// The active controller manager — the platform's when running inside the platform,
         /// otherwise the limapp's own.
         /// </summary>
@@ -136,12 +148,21 @@ namespace Liminal.SDK.V2
 
         private void LateUpdate()
         {
+            // Poll once and reuse: IsHandTracking walks the subsystem list each call.
+            bool handTracking = IsHandTracking;
+
+            if (handTracking != s_handTracking)
+            {
+                s_handTracking = handTracking;
+                HandTrackingChanged?.Invoke(handTracking);
+            }
+
             ApplyCustomMeshHandTrackingTransform();
 
             foreach (var go in HideWhenUsingHands)
             {
                 if (go != null)
-                    go.SetActive(!IsHandTracking);
+                    go.SetActive(!handTracking);
             }
         }
 

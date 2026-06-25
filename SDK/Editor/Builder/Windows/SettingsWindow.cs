@@ -477,11 +477,15 @@ namespace Liminal.SDK.Build
                         CopyOutput("Standalone", standaloneEffective, streamingAssetsRoot, manifest);
                 }
 
-                // Single flat DLL copy. Prefer Standalone (matches the editor's player target); fall back
-                // to Android if Standalone wasn't built.
+                // Single flat DLL copy. Copy whichever platform's App DLL was built most recently so a
+                // stale output for the *other* platform can't shadow the build you just made (e.g. an old
+                // Standalone build silently overriding a fresh Android one). Falls back to the previous
+                // Standalone-preference only when neither candidate DLL is present, so CopyDll still emits
+                // its 'not found' warning.
                 if (copyDll && !string.IsNullOrEmpty(dllFolder))
                 {
-                    var dllSrcFolder = standaloneEffective ?? androidEffective;
+                    var dllSrcFolder = NewestAssemblyFolder(manifest.Name, standaloneSrc, androidSrc)
+                        ?? standaloneEffective ?? androidEffective;
                     if (dllSrcFolder != null)
                         CopyDll(dllSrcFolder, dllFolder, manifest);
                 }
@@ -509,6 +513,35 @@ namespace Liminal.SDK.Build
             var bundledDll = Path.Combine(dstFolder, "assemblyFolder", manifest.Name + ".dll");
             if (File.Exists(bundledDll))
                 WritePluginMeta(bundledDll);
+        }
+
+        /// <summary>
+        /// Returns the candidate build-output folder whose <c>assemblyFolder/&lt;asmName&gt;.dll</c> was
+        /// written most recently, or <c>null</c> if none of the candidates contain that DLL. Used to copy
+        /// the freshest platform's App DLL rather than blindly preferring one platform. On equal timestamps
+        /// the earliest candidate wins, so pass the preferred platform first.
+        /// </summary>
+        private static string NewestAssemblyFolder(string asmName, params string[] candidateFolders)
+        {
+            string newest = null;
+            var newestTime = DateTime.MinValue;
+            foreach (var folder in candidateFolders)
+            {
+                if (string.IsNullOrEmpty(folder))
+                    continue;
+
+                var dll = Path.Combine(folder, "assemblyFolder", asmName + ".dll");
+                if (!File.Exists(dll))
+                    continue;
+
+                var written = File.GetLastWriteTimeUtc(dll);
+                if (newest == null || written > newestTime)
+                {
+                    newest = folder;
+                    newestTime = written;
+                }
+            }
+            return newest;
         }
 
         private static void CopyDll(string srcFolder, string dllFolder, AppManifest manifest)

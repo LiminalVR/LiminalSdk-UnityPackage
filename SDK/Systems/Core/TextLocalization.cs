@@ -10,6 +10,7 @@ namespace Liminal.SDK.V2
     {
         public Text UnityText;
         public TMPro.TextMeshProUGUI TextMeshProText;
+        public TMPro.TextMeshPro TextMeshPro3DText;
 
         public List<LocalizationData> LocalizationDataList;
 
@@ -19,12 +20,25 @@ namespace Liminal.SDK.V2
         {
             UnityText = GetComponent<Text>();
             TextMeshProText = GetComponent<TMPro.TextMeshProUGUI>();
+            TextMeshPro3DText = GetComponent<TMPro.TextMeshPro>();
         }
 
-        private void Start()
+        private void OnEnable()
         {
+            // Event covers hands coming online a few frames after Start (common in-editor) and
+            // runtime switches between hands and controllers. UpdateText() here syncs to whatever
+            // the state already is on enable.
+            LiminalControllerManager.HandTrackingChanged += OnHandTrackingChanged;
             UpdateText();
         }
+
+        private void OnDisable()
+        {
+            // HandTrackingChanged is static — always unsubscribe to avoid leaking across load/unload.
+            LiminalControllerManager.HandTrackingChanged -= OnHandTrackingChanged;
+        }
+
+        private void OnHandTrackingChanged(bool handTracking) => UpdateText();
 
         private void Update()
         {
@@ -36,6 +50,8 @@ namespace Liminal.SDK.V2
         {
             var type = LiminalControllerManager.IsHandTracking == true ? ELocalizationType.Hands : ELocalizationType.Controllers;
             var data = LocalizationDataList.FirstOrDefault(x => x.Type == type);
+            if(data == null)
+                return;
 
             switch (type)
             {
@@ -55,6 +71,9 @@ namespace Liminal.SDK.V2
 
             if (TextMeshProText != null)
                 TextMeshProText.text = text;
+
+            if (TextMeshPro3DText != null)
+                TextMeshPro3DText.text = text;
         }
     }
 
