@@ -276,15 +276,18 @@ namespace App.Core
             ExperienceApp = null;
             Assemblies = null;
 
+            Debug.Log($"[LimappBase] - Unloading... {SceneName}");
             yield return SceneManager.UnloadSceneAsync(SceneName);
 
+            Debug.Log("[LimappBase] - Unloaded scene...");
             UnloadAssetBundle();
             ExperienceAppReflectionCache.IsEndingField.SetValue(null, false);
 
+            Debug.Log("[LimappBase] - Unloaded asset bundle...");
             yield return Resources.UnloadUnusedAssets();
             GC.Collect();
 
-            Debug.Log("Unloaded...");
+            Debug.Log("[LimappBase] - Unloaded...");
 
             void UnloadAssetBundle()
             {

@@ -11,6 +11,10 @@ using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
 using App.Shared;
+using Liminal.SDK.V2;
+using Liminal.SDK.Core;
+using Liminal.SDK.OpenVR;
+using Liminal.SDK.VR.Utils;
 
 namespace App.core
 {
@@ -55,13 +59,15 @@ namespace App.core
         [ContextMenu("End")]
         public Coroutine End()
         {
-            return StartCoroutine(EndRoutine());
+            return CoroutineService.Instance.StartCoroutine(EndRoutine());
 
             IEnumerator EndRoutine()
             {
+                Debug.Log("[LimappPlayer] - Ending current experience");
                 yield return _currentLimapp.Unload();
                 _currentLimapp = null;
 
+                Debug.Log("[LimappPlayer] - Current experience ended");
                 if(SceneContainer != null)
                     SceneContainer.SetActive(true);
 
@@ -78,7 +84,7 @@ namespace App.core
         // ReSharper disable Unity.PerformanceAnalysis
         public Coroutine Play(LimappBase limapp, ExperienceConfig? config = null)
         {
-            return StartCoroutine(PlayRoutine());
+            return CoroutineService.Instance.StartCoroutine(PlayRoutine());
 
             IEnumerator PlayRoutine()
             {

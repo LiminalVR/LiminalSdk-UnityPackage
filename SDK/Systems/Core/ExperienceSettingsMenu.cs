@@ -171,9 +171,11 @@ namespace App.PlatformViewer
 
             IEnumerator Routine()
             {
+                Debug.Log("[ExperienceSettingsMenu] - Exiting experience");
                 yield return LimappPlayer.Instance.End();
-
+                Debug.Log("[ExperienceSettingsMenu] - Experience exited");
                 SetPlatformAvatarHeadTransformToCached();
+                Debug.Log("[ExperienceSettingsMenu] - Restored platform avatar head transforms");
                 PlatformExperienceAppManager.SetActive(true);
 
                 _isExiting = false;

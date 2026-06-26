@@ -5,16 +5,13 @@ using Liminal.SDK.VR;
 using Liminal.SDK.VR.Avatars;
 using Liminal.SDK.VR.Input;
 using Liminal.SDK.VR.Pointers;
+using Liminal.SDK.VR.Utils;
 using Liminal.Systems;
 using UnityEngine;
 using Valve.VR;
 
 namespace Liminal.SDK.OpenVR
 {
-    public class CoroutineService : MonoBehaviour
-    {
-    }
-
     public class OpenVRDevice : IVRDevice
     {
         private static readonly VRDeviceCapability _capabilities = VRDeviceCapability.Controller | VRDeviceCapability.DualController | VRDeviceCapability.UserPrescenceDetection;
