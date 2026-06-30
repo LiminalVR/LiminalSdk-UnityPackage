@@ -110,10 +110,7 @@ namespace Liminal.SDK.V2
         {
             get
             {
-                var app = ExperienceAppManager.PlatformInstance != null
-                    ? ExperienceAppManager.PlatformInstance
-                    : ExperienceAppManager.LimappInstance;
-
+                var app = ExperienceAppManager.Instance;
                 return app != null ? app.ControllerManager : null;
             }
         }

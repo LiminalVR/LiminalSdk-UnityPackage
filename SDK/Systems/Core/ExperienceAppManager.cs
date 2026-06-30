@@ -24,6 +24,8 @@ namespace Liminal.SDK.V2
         public static ExperienceAppManager PlatformInstance;
         public static ExperienceAppManager LimappInstance;
 
+        public static ExperienceAppManager Instance;
+
         public bool IsLimapp;
 
         // This is the old experience content holder. We want EVERYTHING off so nothing looks for VRAvatar etc until it is all set up.
@@ -57,8 +59,12 @@ namespace Liminal.SDK.V2
         [ContextMenu("Spawn Rig")]
         public XRRigReferences SpawnRig()
         {
-            if(!IsLimapp)
+            if(!IsLimapp){
                 PlatformInstance = this;
+            }
+            else{
+                LimappInstance = this;
+            }
 
             if (SpawnedRig != null)
                 return SpawnedRig;
@@ -158,14 +164,13 @@ namespace Liminal.SDK.V2
         [ContextMenu("2 - Scene Setup")]
         public void SceneSetup()
         {
+            Debug.Log("[ExperienceAppManager] Setting up scene.", this);
             if(XROrigin != null){
                 XROrigin.Camera = AvatarHead.CenterEyeCamera;
                 XROrigin.CameraFloorOffsetObject = AvatarHead.transform.gameObject;
                 XROrigin.CameraYOffset = AvatarHead.transform.localPosition.y;
             }
-            
             CopyTrackedPoseDriverToCenterEye();
-
             VRAvatar.Auxiliaries.gameObject.SetActive(false);
         }
 
@@ -215,6 +220,8 @@ namespace Liminal.SDK.V2
         {
             if(IsLimapp)
                 LimappInstance = this;
+
+            Instance = this;
 
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -297,18 +304,28 @@ namespace Liminal.SDK.V2
         [ContextMenu("Setup Test")]
         public void Setup()
         {
+            Debug.Log("[ExperienceAppManager] Setup() called. Finding references, spawning rig, and setting up scene.", this);
             FindReferences();
+            Debug.Log("[ExperienceAppManager] References found. Spawning rig.", this);
             SpawnRig();
+            Debug.Log("[ExperienceAppManager] Rig spawned. Setting up scene.", this);
             SceneSetup();
+            Debug.Log("[ExperienceAppManager] Scene Setup complete.", this);
 
             if (ControllerManager != null)
                 ControllerManager.ApplyDefaults();
 
+            Debug.Log("[ExperienceAppManager] ControllerManager defaults applied.", this);
+
             if(DeviceManager.Device == null)
                 DeviceManager.Initialize(new UnityXRDevice());
 
+            Debug.Log("[ExperienceAppManager] DeviceManager initialized.", this);
+
             if(ExperienceApp != null)
                 ExperienceApp.gameObject.SetActive(true);
+
+            Debug.Log("[ExperienceAppManager] ExperienceApp activated.", this);
         }
 
         private void LateUpdate()

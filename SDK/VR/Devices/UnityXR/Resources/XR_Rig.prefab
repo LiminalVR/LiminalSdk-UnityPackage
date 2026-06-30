@@ -191,7 +191,7 @@ MonoBehaviour:
   m_EventMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  m_MaxRayIntersections: 10
+  m_MaxRayIntersections: 64
   m_EventCamera: {fileID: 0}
 --- !u!1 &7916458571814586389
 GameObject:
@@ -225,8 +225,8 @@ Transform:
   m_Children:
   - {fileID: 8438352867969330984}
   - {fileID: 4657841681014054244}
-  - {fileID: 1341779885587635982}
   - {fileID: 8235272210592622311}
+  - {fileID: 1341779885587635982}
   - {fileID: 5800292713693736163}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
