@@ -187,7 +187,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6df61a9a13528fd4f9365c233cb23bfb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.UI.TrackedDevicePhysicsRaycaster
-  m_RaycastTriggerInteraction: 2
+  m_RaycastTriggerInteraction: 1
   m_EventMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -1623,7 +1623,15 @@ PrefabInstance:
         type: 3}
       insertIndex: 6
       addedObject: {fileID: 4959822385333853294}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6355494128053973299, guid: d6878e1999eb4b44a9f5a263af86c185,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6723856162676375321}
+    - targetCorrespondingSourceObject: {fileID: 1800725127586568702, guid: d6878e1999eb4b44a9f5a263af86c185,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2392408770014821141}
   m_SourcePrefab: {fileID: 100100000, guid: d6878e1999eb4b44a9f5a263af86c185, type: 3}
 --- !u!1 &372024616527623861 stripped
 GameObject:
@@ -1643,6 +1651,55 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c2fadf230d1919748a9aa21d40f74619, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &1622466044383065501 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6355494128053973299, guid: d6878e1999eb4b44a9f5a263af86c185,
+    type: 3}
+  m_PrefabInstance: {fileID: 5672117128776975534}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6723856162676375321
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1622466044383065501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7644df156a387b74aa3043d3a5e748f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LiminalSdk::Liminal.SDK.V2.XRThumbGestureDetector
+  useRightHand: 0
+  OnSwipeLeft:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSwipeRight:
+    m_PersistentCalls:
+      m_Calls: []
+  OnThumbTap:
+    m_PersistentCalls:
+      m_Calls: []
+  OnThumbDown:
+    m_PersistentCalls:
+      m_Calls: []
+  OnThumbUp:
+    m_PersistentCalls:
+      m_Calls: []
+  requiredClosedFingers: 3
+  closedRelativeFactor: 1.45
+  closedAbsoluteDistance: 0.085
+  thumbToIndexMaxDistance: 0.018
+  thumbReleaseDistance: 0.03
+  swipeDeflectionThreshold: 0.8
+  maxGestureDuration: 0.65
+  liftGraceDuration: 0.15
+  invertHorizontal: 0
+  joystickRadius: 0.02
+  joystickDeadzone: 0.15
+  tapMaxDuration: 0.35
+  tapMaxMovement: 0.012
+  gestureCooldown: 0.25
+  verboseLogging: 0
 --- !u!114 &1745456965412249706 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 6237049687586235588, guid: d6878e1999eb4b44a9f5a263af86c185,
@@ -1715,6 +1772,55 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 5672117128776975534}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &6217814737816902992 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1800725127586568702, guid: d6878e1999eb4b44a9f5a263af86c185,
+    type: 3}
+  m_PrefabInstance: {fileID: 5672117128776975534}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2392408770014821141
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6217814737816902992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7644df156a387b74aa3043d3a5e748f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: LiminalSdk::Liminal.SDK.V2.XRThumbGestureDetector
+  useRightHand: 1
+  OnSwipeLeft:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSwipeRight:
+    m_PersistentCalls:
+      m_Calls: []
+  OnThumbTap:
+    m_PersistentCalls:
+      m_Calls: []
+  OnThumbDown:
+    m_PersistentCalls:
+      m_Calls: []
+  OnThumbUp:
+    m_PersistentCalls:
+      m_Calls: []
+  requiredClosedFingers: 3
+  closedRelativeFactor: 1.45
+  closedAbsoluteDistance: 0.085
+  thumbToIndexMaxDistance: 0.018
+  thumbReleaseDistance: 0.03
+  swipeDeflectionThreshold: 0.8
+  maxGestureDuration: 0.65
+  liftGraceDuration: 0.15
+  invertHorizontal: 0
+  joystickRadius: 0.02
+  joystickDeadzone: 0.15
+  tapMaxDuration: 0.35
+  tapMaxMovement: 0.012
+  gestureCooldown: 0.25
+  verboseLogging: 0
 --- !u!114 &6337208421054164321 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 1820897918385990095, guid: d6878e1999eb4b44a9f5a263af86c185,

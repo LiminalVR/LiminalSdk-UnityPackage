@@ -9,6 +9,7 @@
         "Unity.XR.Interaction.Toolkit",
         "Unity.XR.CoreUtils",
         "Unity.XR.Hands",
+        "Unity.XR.OpenXR",
         "Unity.InputSystem",
         "Unity.Mathematics",
         "Unity.XR.Hands.Samples.VisualizerSample",

@@ -85,6 +85,10 @@ namespace Liminal.SDK.V2
         [Tooltip("Seconds the swipe may keep travelling after the thumb lifts off the finger.")]
         public float liftGraceDuration = 0.15f;
 
+        [Tooltip("Normalized deflection (0-1) past the press point the motion must end at for a swipe, so a fast return-to-center stroke that overshoots slightly does not fire the opposite swipe.")]
+        [Range(0f, 1f)]
+        public float swipeMinEndDeflection = 0.3f;
+
         public bool invertHorizontal;
 
         [Header("Joystick")]
@@ -96,6 +100,9 @@ namespace Liminal.SDK.V2
         public float joystickDeadzone = 0.15f;
 
         [Header("Tap")]
+        [Tooltip("Minimum press duration (seconds) for a tap, so a single-frame tracking glitch across the press/release thresholds cannot fire one.")]
+        public float tapMinDuration = 0.05f;
+
         [Tooltip("Maximum press duration (seconds) for a tap.")]
         public float tapMaxDuration = 0.35f;
 
@@ -171,7 +178,7 @@ namespace Liminal.SDK.V2
 
             Log($"Enabled. press<={thumbToIndexMaxDistance * 1000f:F0}mm release>={EffectiveReleaseDistance * 1000f:F0}mm " +
                 $"swipe>={swipeDeflectionThreshold:F2} deflection (joystick radius {joystickRadius * 1000f:F0}mm) " +
-                $"tap<={tapMaxDuration:F2}s/{tapMaxMovement * 1000f:F0}mm gate={requiredClosedFingers}/3 fingers closed");
+                $"tap {tapMinDuration:F2}-{tapMaxDuration:F2}s/<={tapMaxMovement * 1000f:F0}mm gate={requiredClosedFingers}/3 fingers closed");
         }
 
         void OnDisable()
@@ -218,7 +225,6 @@ namespace Liminal.SDK.V2
             else if (m_IsPressed && pressDistance >= EffectiveReleaseDistance)
                 m_IsPressed = false;
 
-            var pressBegan = m_IsPressed && !wasPressed;
             var pressEnded = !m_IsPressed && wasPressed;
 
             if (!TryComputeLocalThumbPosition(joints, out var local))
@@ -238,7 +244,11 @@ namespace Liminal.SDK.V2
             {
                 case State.Idle:
                 {
-                    if (!pressBegan)
+                    // Start whenever the thumb is held in the gated pose, not only on the contact
+                    // frame, so a press that lands before the fingers finish curling (common when
+                    // forming a fist) or that began during LiftGrace/Cooldown still becomes a
+                    // gesture instead of being eaten until the next full lift.
+                    if (!m_IsPressed)
                         break;
 
                     if (joints.ClosedFingerCount >= requiredClosedFingers)
@@ -270,7 +280,12 @@ namespace Liminal.SDK.V2
 
                     if (pressEnded)
                     {
-                        if (duration <= tapMaxDuration && m_PeakTravel <= tapMaxMovement)
+                        // The pose gate must still (mostly) hold at release — one finger of
+                        // hysteresis for tracking noise during the lift — so opening the hand
+                        // out of the pose does not read as a tap.
+                        if (duration >= tapMinDuration && duration <= tapMaxDuration &&
+                            m_PeakTravel <= tapMaxMovement &&
+                            joints.ClosedFingerCount >= requiredClosedFingers - 1)
                         {
                             Log($"Thumb tap ({duration:F2}s, peak travel {m_PeakTravel * 1000f:F0}mm)");
                             OnThumbTap.Invoke();
@@ -322,8 +337,10 @@ namespace Liminal.SDK.V2
                         if (verboseLogging)
                             Log("Re-armed while held");
                     }
-                    else if (!m_IsPressed)
+                    else
                     {
+                        // Always leave the cooldown once it expires; a press that began during
+                        // it (contact not yet active) is picked up by Idle on the next frame.
                         m_State = State.Idle;
                     }
 
@@ -559,10 +576,11 @@ namespace Liminal.SDK.V2
             m_WindowRise = x - min;
             m_WindowFall = max - x;
 
-            // A return-to-center stroke has the same window delta as a swipe but ends at or short
-            // of the press center, so the motion must also end past center in its direction.
-            var rightValid = m_WindowRise >= swipeDeflectionThreshold && x > 0f;
-            var leftValid = m_WindowFall >= swipeDeflectionThreshold && x < 0f;
+            // A return-to-center stroke has the same window delta as a swipe but ends at or near
+            // the press center, so the motion must also end meaningfully past center in its
+            // direction — a slight overshoot on the way back must not fire the opposite swipe.
+            var rightValid = m_WindowRise >= swipeDeflectionThreshold && x >= swipeMinEndDeflection;
+            var leftValid = m_WindowFall >= swipeDeflectionThreshold && x <= -swipeMinEndDeflection;
 
             if (!rightValid && !leftValid)
                 return false;
