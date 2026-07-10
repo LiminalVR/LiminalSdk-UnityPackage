@@ -161,6 +161,10 @@ public class ControllerInputExample : MonoBehaviour
         builder.AppendLine($"{deviceName} One: {inputDevice.GetButton(VRButton.One)}");
         builder.AppendLine($"{deviceName} Trigger: {inputDevice.GetButton(VRButton.Trigger)}");
         builder.AppendLine($"{deviceName} Primary: {inputDevice.GetButton(VRButton.Primary)}");
+
+        bool pinching = HandPinchHold.IsHeld(inputDevice.Hand);
+        builder.AppendLine($"{deviceName} pinching: {pinching}");
+
        
         builder.AppendLine($"{deviceName} Secondary: {inputDevice.GetButton(VRButton.Seconday)}");
         builder.AppendLine($"{deviceName} Three: {inputDevice.GetButton(VRButton.Three)}");

@@ -24,10 +24,9 @@ namespace Liminal.Systems
         public static EDeviceModelType GetDeviceModelType()
         {
             var name = SystemInfo.deviceName;
+            var deviceModel = SystemInfo.deviceModel;
 
-            //Debug.LogFormat("XRDeviceUtils: System device name: {0}", name);
-            //Debug.LogFormat("XRDeviceUtils: System graphics device name: {0}", SystemInfo.graphicsDeviceName);
-
+            Debug.Log($"[XRDeviceUtils] deviceName: '{name}' | deviceModel: '{SystemInfo.deviceModel}' | graphicsDeviceName: '{SystemInfo.graphicsDeviceName}'");
             // For some reason quest 3 is unknown after we complete all the signing stages.
 
             // Quest 2 and Quest 3 BOTH return <unknown> after signing.
@@ -36,6 +35,9 @@ namespace Liminal.Systems
             // Moved Quest 3 detection down with other Quest devices
             //if (name.Contains("Quest 3"))
             //    return EDeviceModelType.Quest3;
+
+            if(deviceModel.Contains("Quest 3S"))
+                return EDeviceModelType.Quest3s;
 
             if (name.Equals("Meta Quest Pro"))
                 return EDeviceModelType.QuestPro;
@@ -85,6 +87,7 @@ namespace Liminal.Systems
             if (model.Contains("AcerAH101"))
                 type = EDeviceModelType.AcerAH101;
 
+            Debug.Log($"[XRDeviceUtils] Resolved device model type: {type}");
             return type;
         }
 

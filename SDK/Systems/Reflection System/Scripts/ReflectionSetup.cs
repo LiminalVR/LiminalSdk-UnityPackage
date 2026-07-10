@@ -12,7 +12,8 @@
         {
             Debug.Log($"Known Device Name: {XRDeviceUtils.GetDeviceModelType()} - Actual Device Model: {SystemInfo.deviceModel}");
 
-            if (XRDeviceUtils.SupportsPlanarReflection())
+            var alwaysUsePlanar = true;
+            if (XRDeviceUtils.SupportsPlanarReflection() || alwaysUsePlanar)
             {
                 DefaultSetup.SetActive(true);
                 ReflectionProbeSetup.SetActive(false);

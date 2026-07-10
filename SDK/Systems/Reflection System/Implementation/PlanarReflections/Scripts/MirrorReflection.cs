@@ -3,6 +3,7 @@
 namespace App
 {
     using UnityEngine;
+    using UnityEngine.XR;
     using System.Collections;
 
     // This is in fact just the Water script from Pro Standard Assets,
@@ -27,6 +28,10 @@ namespace App
         private static bool s_InsideRendering = false;
         private static readonly int s_offsetEnabled = Shader.PropertyToID("_OffsetEnabled");
 
+        // Diagnostic logging - only log the first few render attempts to avoid per-frame spam.
+        private int m_RenderLogCount;
+        private const int MaxRenderLogs = 5;
+
 #if SMOOTH_CAM
         public Camera Cam => GameObject.Find("SmoothCam").GetComponent<Camera>();
 #else
@@ -47,15 +52,42 @@ namespace App
         {
             if (ipd <= 0)
             {
-                ipd = OVRPlugin.ipd;
+                ipd = GetXRIpd();
             }
-            Debug.Log($"Mirror IPD Awake - {ipd}");
+            Debug.Log($"[MirrorReflection] Awake on '{name}' | ipd: {ipd} | Cam: {(Cam != null ? Cam.name : "NULL")} | Cam FOV: {(Cam != null ? Cam.fieldOfView.ToString() : "n/a")}");
 
             HasQuest2FOV = Cam.fieldOfView <= 100;
 
             if (IpdModel != null)
+            {
+                Debug.Log("[MirrorReflection] IpdModel already set, skipping selection");
                 return;
+            }
 
+            if (ipd > 0)
+                SelectIpdModel();
+        }
+
+        /// <summary>
+        /// IPD from the XR head device's eye poses. OVRPlugin.ipd is unavailable under
+        /// Unity XR/OpenXR (native OVRPlugin lib is not shipped - DllNotFoundException).
+        /// Returns 0 until the XR session starts reporting eye positions.
+        /// </summary>
+        private static float GetXRIpd()
+        {
+            var head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+            if (head.isValid &&
+                head.TryGetFeatureValue(CommonUsages.leftEyePosition, out var leftEye) &&
+                head.TryGetFeatureValue(CommonUsages.rightEyePosition, out var rightEye))
+            {
+                return Vector3.Distance(leftEye, rightEye);
+            }
+
+            return 0f;
+        }
+
+        private void SelectIpdModel()
+        {
             var deviceModel = XRDeviceUtils.GetDeviceModelType();
 
             if (deviceModel == EDeviceModelType.QuestPro)
@@ -92,12 +124,18 @@ namespace App
                     IpdModel = Ipd68OffsetModel;
             }
 
-            Debug.Log($"IPD {ipd}");
+            var modelName = IpdModel == null ? "NULL (ipd below 0.055 threshold?)"
+                : IpdModel == Ipd58OffsetModel ? "Ipd58"
+                : IpdModel == Ipd63OffsetModel ? "Ipd63"
+                : "Ipd68";
+            Debug.Log($"[MirrorReflection] IPD {ipd} | deviceModel: {deviceModel} | selected IpdModel: {modelName}");
         }
 
-        private void Start()
+        private IEnumerator Start()
         {
             m_Renderer = GetComponent<Renderer>();
+
+            Debug.Log($"[MirrorReflection] Start on '{name}' | renderer: {(m_Renderer != null ? m_Renderer.GetType().Name : "NULL")} | shader: {(m_Renderer != null ? m_Renderer.material.shader.name : "n/a")} | has _ReflectionTex: {(m_Renderer != null && m_Renderer.material.HasProperty("_ReflectionTex"))}");
 
             m_Renderer.material.SetFloat("_Quest", 0);
             m_Renderer.material.SetFloat("_Rift", 0);
@@ -105,12 +143,18 @@ namespace App
             m_Renderer.material.SetFloat("_Vive", 0);
             m_Renderer.material.SetFloat("_VivePro", 0);
 
-#if UNITY_ANDROID
-            m_Renderer.material.SetFloat(s_offsetEnabled, OVRUtils.IsOculusQuest ? 1 : 0);
-            m_Renderer.material.SetFloat("_Quest", OVRUtils.IsOculusQuest ? 1 : 0);
-#endif
             var model = XRDeviceUtils.GetDeviceModelType();
-            Debug.Log($"[Mirror Reflection] Model Name: {model}, is Quest: {OVRUtils.IsOculusQuest}");
+
+            // Quest 1 specifically. OVRUtils.IsOculusQuest was used here but it calls
+            // into the native OVRPlugin lib, which is absent under Unity XR/OpenXR
+            // (DllNotFoundException aborted Start on device).
+            var isQuest1 = model == EDeviceModelType.Quest;
+
+#if UNITY_ANDROID
+            m_Renderer.material.SetFloat(s_offsetEnabled, isQuest1 ? 1 : 0);
+            m_Renderer.material.SetFloat("_Quest", isQuest1 ? 1 : 0);
+#endif
+            Debug.Log($"[Mirror Reflection] Model Name: {model}, is Quest 1: {isQuest1}");
 #if UNITY_STANDALONE
             m_Renderer.material.SetFloat(s_offsetEnabled, 1);
 
@@ -138,11 +182,36 @@ namespace App
                 model == EDeviceModelType.QuestPro ||
                 model == EDeviceModelType.Quest3)
             {
+                // Awake can run before the XR session reports eye poses, leaving ipd 0
+                // and no IpdModel selected - wait for a real IPD instead of applying null.
+                var timeout = Time.unscaledTime + 5f;
+                while (IpdModel == null && Time.unscaledTime < timeout)
+                {
+                    if (ipd <= 0)
+                        ipd = GetXRIpd();
+
+                    if (ipd > 0)
+                        SelectIpdModel();
+
+                    if (IpdModel == null)
+                        yield return null;
+                }
+
+                if (IpdModel == null)
+                {
+                    Debug.LogWarning($"[MirrorReflection] No IPD from XR after 5s (ipd: {ipd}) - falling back to Ipd63 offsets");
+                    IpdModel = Ipd63OffsetModel;
+                }
+
                 m_Renderer.material.SetFloat("_Quest", 0);
                 m_Renderer.material.SetFloat(s_offsetEnabled, 1);
                 m_Renderer.material.SetFloat("_Debug", 1);
 
                 SetMaterial(IpdModel);
+            }
+            else
+            {
+                Debug.Log($"[MirrorReflection] Model {model} not in Quest2/Pro/3 branch - no IPD offset material applied");
             }
 
             // This is only true in Unity 2019!
@@ -160,10 +229,13 @@ namespace App
             // The hack would enforce FOV of Quest 2. 
             // So here we are checking if this hack has been removed on this device. (could be through meta switch or firmware.)
             // And if so, use these values, they work for all IPD!
+            Debug.Log($"[MirrorReflection] HasQuest2FOV: {HasQuest2FOV} | Cam FOV: {(Cam != null ? Cam.fieldOfView.ToString() : "NULL cam")} | model: {model}");
+
             if (!HasQuest2FOV)
             {
                 if (model == EDeviceModelType.Quest3 || model == EDeviceModelType.QuestPro)
                 {
+                    Debug.Log("[MirrorReflection] Applying no-Meta-hack offsets for Quest3/QuestPro");
                     m_Renderer.material.SetFloat("_Quest", 0);
                     m_Renderer.material.SetFloat("_OffsetEnabled", 1);
                     m_Renderer.material.SetFloat("_Debug", 1);
@@ -210,19 +282,33 @@ namespace App
         // camera will just work!
         public void OnWillRenderObject()
         {
+            var log = m_RenderLogCount < MaxRenderLogs;
+
             if (m_Renderer == null)
+            {
+                if (log) { m_RenderLogCount++; Debug.Log($"[MirrorReflection] OnWillRenderObject skipped on '{name}': m_Renderer is null (Start not run yet?)"); }
                 return;
+            }
 
             if (!enabled || !m_Renderer || !m_Renderer.sharedMaterial || !m_Renderer.enabled)
+            {
+                if (log) { m_RenderLogCount++; Debug.Log($"[MirrorReflection] OnWillRenderObject skipped on '{name}': enabled={enabled}, sharedMaterial={(m_Renderer.sharedMaterial != null)}, rendererEnabled={m_Renderer.enabled}"); }
                 return;
+            }
 
             Camera cam = Cam;
             if (!cam)
+            {
+                if (log) { m_RenderLogCount++; Debug.Log($"[MirrorReflection] OnWillRenderObject skipped on '{name}': Cam is null (no MainCamera tag?)"); }
                 return;
+            }
 
             // Safeguard from recursive reflections.
             if (s_InsideRendering)
+            {
+                if (log) { m_RenderLogCount++; Debug.Log($"[MirrorReflection] OnWillRenderObject skipped on '{name}': s_InsideRendering is true (stuck from an earlier exception?)"); }
                 return;
+            }
             s_InsideRendering = true;
 
             Camera reflectionCamera;
@@ -263,14 +349,35 @@ namespace App
             reflectionCamera.transform.position = newpos;
             Vector3 euler = cam.transform.eulerAngles;
             reflectionCamera.transform.eulerAngles = new Vector3(0, euler.y, euler.z);
-            reflectionCamera.Render();
+
+            try
+            {
+                reflectionCamera.Render();
+            }
+            catch (System.Exception e)
+            {
+                // Without this catch an exception here leaves s_InsideRendering stuck true,
+                // permanently disabling every mirror in the scene with no visible error.
+                Debug.LogError($"[MirrorReflection] reflectionCamera.Render() threw on '{name}': {e}");
+            }
+
             reflectionCamera.transform.position = oldpos;
             GL.invertCulling = false;
             Material[] materials = m_Renderer.sharedMaterials;
+            var materialsWithReflectionTex = 0;
             foreach (Material mat in materials)
             {
                 if (mat.HasProperty("_ReflectionTex"))
+                {
                     mat.SetTexture("_ReflectionTex", m_ReflectionTexture);
+                    materialsWithReflectionTex++;
+                }
+            }
+
+            if (m_RenderLogCount < MaxRenderLogs)
+            {
+                m_RenderLogCount++;
+                Debug.Log($"[MirrorReflection] Rendered reflection #{m_RenderLogCount} on '{name}' | cam: {cam.name} @ {cam.transform.position} | texture: {m_ReflectionTexture.width}px created: {m_ReflectionTexture.IsCreated()} | cullingMask: {reflectionCamera.cullingMask} | materials with _ReflectionTex: {materialsWithReflectionTex}/{materials.Length}");
             }
 
             // Restore pixel light count
