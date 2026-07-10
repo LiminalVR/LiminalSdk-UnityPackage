@@ -1,5 +1,3 @@
-﻿using Liminal.Systems;
-
 namespace App
 {
     using UnityEngine;
@@ -8,6 +6,13 @@ namespace App
 
     // This is in fact just the Water script from Pro Standard Assets,
     // just with refraction stuff removed.
+
+    // The reflection is rendered once per eye using the eye's actual view and
+    // projection matrices from the XR runtime (GetStereoViewMatrix/GetStereoProjectionMatrix).
+    // Because the reflection render shares the eye's exact projection, a point on the
+    // mirror plane lands on the same screen position in both renders, so the shader can
+    // sample the reflection texture at the fragment's own screen UV with no per-headset
+    // or per-IPD correction. This replaces the old hand-tuned Ipd58/63/68 offset models.
 
     public class MirrorReflection : MonoBehaviour
     {
@@ -22,11 +27,13 @@ namespace App
 
         private Hashtable m_ReflectionCameras = new Hashtable(); // Camera -> Camera table
 
-        private RenderTexture m_ReflectionTexture = null;
+        private RenderTexture m_ReflectionTextureLeft = null;
+        private RenderTexture m_ReflectionTextureRight = null;
         private int m_OldReflectionTextureSize = 0;
 
         private static bool s_InsideRendering = false;
-        private static readonly int s_offsetEnabled = Shader.PropertyToID("_OffsetEnabled");
+        private static readonly int s_reflectionTex = Shader.PropertyToID("_ReflectionTex");
+        private static readonly int s_reflectionTexRight = Shader.PropertyToID("_ReflectionTexRight");
 
         // Diagnostic logging - only log the first few render attempts to avoid per-frame spam.
         private int m_RenderLogCount;
@@ -38,42 +45,24 @@ namespace App
         public Camera Cam => Camera.main;
 #endif
 
-        public ReflectionOffsetModel Ipd58OffsetModel = new ReflectionOffsetModel(1.194927f, -0.186721f, 0.8499745f);
-        public ReflectionOffsetModel Ipd63OffsetModel = new ReflectionOffsetModel(1.077431f, -0.07495025f, 0.9323733f);
-        public ReflectionOffsetModel Ipd68OffsetModel = new ReflectionOffsetModel(1.044061f, -0.006401608f, 1.038761f, -0.03448246f);
-
-        public static ReflectionOffsetModel IpdModel = null;
-
-        public bool HasQuest2FOV;
-
+        // Kept for diagnostics (DebugInfo/ReflectionTester). No longer drives the reflection.
         public static float ipd = 0;
 
         private void Awake()
         {
             if (ipd <= 0)
-            {
                 ipd = GetXRIpd();
-            }
-            Debug.Log($"[MirrorReflection] Awake on '{name}' | ipd: {ipd} | Cam: {(Cam != null ? Cam.name : "NULL")} | Cam FOV: {(Cam != null ? Cam.fieldOfView.ToString() : "n/a")}");
 
-            HasQuest2FOV = Cam.fieldOfView <= 100;
-
-            if (IpdModel != null)
-            {
-                Debug.Log("[MirrorReflection] IpdModel already set, skipping selection");
-                return;
-            }
-
-            if (ipd > 0)
-                SelectIpdModel();
+            Debug.Log($"[MirrorReflection] Awake on '{name}' | ipd: {ipd} | Cam: {(Cam != null ? Cam.name : "NULL")}");
         }
 
         /// <summary>
         /// IPD from the XR head device's eye poses. OVRPlugin.ipd is unavailable under
         /// Unity XR/OpenXR (native OVRPlugin lib is not shipped - DllNotFoundException).
         /// Returns 0 until the XR session starts reporting eye positions.
+        /// Diagnostic only - the reflection itself uses the per-eye stereo matrices.
         /// </summary>
-        private static float GetXRIpd()
+        public static float GetXRIpd()
         {
             var head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
             if (head.isValid &&
@@ -86,194 +75,11 @@ namespace App
             return 0f;
         }
 
-        private void SelectIpdModel()
-        {
-            var deviceModel = XRDeviceUtils.GetDeviceModelType();
-
-            if (deviceModel == EDeviceModelType.QuestPro)
-            {
-                if (ipd >= 0.055f && ipd < 0.061f)
-                    IpdModel = Ipd58OffsetModel;
-
-                if (ipd >= 0.061f && ipd < 0.0655f)
-                    IpdModel = Ipd63OffsetModel;
-
-                if (ipd >= 0.0655f)
-                    IpdModel = Ipd68OffsetModel;
-            }
-            else // Quest 2 
-            {
-                if (ipd >= 0.055f && ipd < 0.062f)
-                    IpdModel = Ipd58OffsetModel;
-
-                if (ipd >= 0.062f && ipd < 0.067f)
-                    IpdModel = Ipd63OffsetModel;
-
-                if (ipd >= 0.067f)
-                    IpdModel = Ipd68OffsetModel;
-            }
-
-            // There is an odd reason where Quest 3 in the Platform uses different IPD values than SDK.
-            if (deviceModel == EDeviceModelType.Quest3)
-            {
-                if (ipd < 0.060f)
-                    IpdModel = Ipd58OffsetModel;
-                else if (ipd < 0.066f)
-                    IpdModel = Ipd63OffsetModel;
-                else
-                    IpdModel = Ipd68OffsetModel;
-            }
-
-            var modelName = IpdModel == null ? "NULL (ipd below 0.055 threshold?)"
-                : IpdModel == Ipd58OffsetModel ? "Ipd58"
-                : IpdModel == Ipd63OffsetModel ? "Ipd63"
-                : "Ipd68";
-            Debug.Log($"[MirrorReflection] IPD {ipd} | deviceModel: {deviceModel} | selected IpdModel: {modelName}");
-        }
-
-        private IEnumerator Start()
+        private void Start()
         {
             m_Renderer = GetComponent<Renderer>();
 
-            Debug.Log($"[MirrorReflection] Start on '{name}' | renderer: {(m_Renderer != null ? m_Renderer.GetType().Name : "NULL")} | shader: {(m_Renderer != null ? m_Renderer.material.shader.name : "n/a")} | has _ReflectionTex: {(m_Renderer != null && m_Renderer.material.HasProperty("_ReflectionTex"))}");
-
-            m_Renderer.material.SetFloat("_Quest", 0);
-            m_Renderer.material.SetFloat("_Rift", 0);
-            m_Renderer.material.SetFloat("_RiftS", 0);
-            m_Renderer.material.SetFloat("_Vive", 0);
-            m_Renderer.material.SetFloat("_VivePro", 0);
-
-            var model = XRDeviceUtils.GetDeviceModelType();
-
-            // Quest 1 specifically. OVRUtils.IsOculusQuest was used here but it calls
-            // into the native OVRPlugin lib, which is absent under Unity XR/OpenXR
-            // (DllNotFoundException aborted Start on device).
-            var isQuest1 = model == EDeviceModelType.Quest;
-
-#if UNITY_ANDROID
-            m_Renderer.material.SetFloat(s_offsetEnabled, isQuest1 ? 1 : 0);
-            m_Renderer.material.SetFloat("_Quest", isQuest1 ? 1 : 0);
-#endif
-            Debug.Log($"[Mirror Reflection] Model Name: {model}, is Quest 1: {isQuest1}");
-#if UNITY_STANDALONE
-            m_Renderer.material.SetFloat(s_offsetEnabled, 1);
-
-            switch (model)
-            {
-                case EDeviceModelType.Rift:
-                    m_Renderer.material.SetFloat("_Rift", 1);
-                    break;
-                case EDeviceModelType.RiftS:
-                    m_Renderer.material.SetFloat("_RiftS", 1);
-                    break;
-                case EDeviceModelType.HtcVive:
-                    m_Renderer.material.SetFloat("_Vive", 1);
-                    break;
-                case EDeviceModelType.HtcVivePro:
-                    m_Renderer.material.SetFloat("_VivePro", 1);
-                    break;
-                case EDeviceModelType.Quest:
-                    m_Renderer.material.SetFloat("_Quest", 1);
-                    break;
-            }
-#endif
-
-            if (model == EDeviceModelType.Quest2 ||
-                model == EDeviceModelType.QuestPro ||
-                model == EDeviceModelType.Quest3)
-            {
-                // Awake can run before the XR session reports eye poses, leaving ipd 0
-                // and no IpdModel selected - wait for a real IPD instead of applying null.
-                var timeout = Time.unscaledTime + 5f;
-                while (IpdModel == null && Time.unscaledTime < timeout)
-                {
-                    if (ipd <= 0)
-                        ipd = GetXRIpd();
-
-                    if (ipd > 0)
-                        SelectIpdModel();
-
-                    if (IpdModel == null)
-                        yield return null;
-                }
-
-                if (IpdModel == null)
-                {
-                    Debug.LogWarning($"[MirrorReflection] No IPD from XR after 5s (ipd: {ipd}) - falling back to Ipd63 offsets");
-                    IpdModel = Ipd63OffsetModel;
-                }
-
-                m_Renderer.material.SetFloat("_Quest", 0);
-                m_Renderer.material.SetFloat(s_offsetEnabled, 1);
-                m_Renderer.material.SetFloat("_Debug", 1);
-
-                SetMaterial(IpdModel);
-            }
-            else
-            {
-                Debug.Log($"[MirrorReflection] Model {model} not in Quest2/Pro/3 branch - no IPD offset material applied");
-            }
-
-            // This is only true in Unity 2019!
-            HasQuest2FOV = Cam.fieldOfView <= 100;
-
-            // In 2022, even without Meta's hack, our FOV is 95. 
-            // This should be renamed to HasMetaHack
-#if UNITY_2022_1_OR_NEWER
-            HasQuest2FOV = false;
-#endif
-
-            
-
-            // Meta has a hack in 2023 for app with com.LiminalVR.Liminal as the package name
-            // The hack would enforce FOV of Quest 2. 
-            // So here we are checking if this hack has been removed on this device. (could be through meta switch or firmware.)
-            // And if so, use these values, they work for all IPD!
-            Debug.Log($"[MirrorReflection] HasQuest2FOV: {HasQuest2FOV} | Cam FOV: {(Cam != null ? Cam.fieldOfView.ToString() : "NULL cam")} | model: {model}");
-
-            if (!HasQuest2FOV)
-            {
-                if (model == EDeviceModelType.Quest3 || model == EDeviceModelType.QuestPro)
-                {
-                    Debug.Log("[MirrorReflection] Applying no-Meta-hack offsets for Quest3/QuestPro");
-                    m_Renderer.material.SetFloat("_Quest", 0);
-                    m_Renderer.material.SetFloat("_OffsetEnabled", 1);
-                    m_Renderer.material.SetFloat("_Debug", 1);
-                    m_Renderer.material.SetFloat("_UseL", 0);
-                    m_Renderer.material.SetFloat("_OffsetRX", 1.233837f);
-                    m_Renderer.material.SetFloat("_OffsetRY", 1);
-                    m_Renderer.material.SetFloat("_OffsetRZ", -0.2374479f);
-                    m_Renderer.material.SetFloat("_OffsetRW", 0);
-                    m_Renderer.material.SetFloat("_OffsetX", 0.8047135f);
-                }
-            }
-
-
-            // For some highly unknown reason the SDK only works with below. I do not know why and really want to know why!
-            /*if (model == EDeviceModelType.Quest3)
-            {
-                m_Renderer.material.SetFloat("_Quest", 0);
-                m_Renderer.material.SetFloat("_OffsetEnabled", 1);
-                m_Renderer.material.SetFloat("_Debug", 1);
-                m_Renderer.material.SetFloat("_OffsetRX", 1.230723f);
-                m_Renderer.material.SetFloat("_OffsetRY", 1);
-                m_Renderer.material.SetFloat("_OffsetRZ", -0.2374479f);
-                m_Renderer.material.SetFloat("_OffsetRW", 0);
-                m_Renderer.material.SetFloat("_OffsetX", 0.8047135f);
-            }*/
-
-            void SetMaterial(ReflectionOffsetModel m)
-            {
-                m_Renderer.material.SetFloat("_OffsetRX", m.RX);
-                m_Renderer.material.SetFloat("_OffsetRY", m.RY);
-                m_Renderer.material.SetFloat("_OffsetRZ", m.RZ);
-                m_Renderer.material.SetFloat("_OffsetRW", m.RW);
-                m_Renderer.material.SetFloat("_OffsetX", m.LOffset);
-
-                m_Renderer.material.SetFloat("_UseL", m.UseL ? 1 : 0);
-                m_Renderer.material.SetFloat("_OffsetLX", m.LX);
-                m_Renderer.material.SetFloat("_OffsetLZ", m.LZ);
-            }
+            Debug.Log($"[MirrorReflection] Start on '{name}' | renderer: {(m_Renderer != null ? m_Renderer.GetType().Name : "NULL")} | shader: {(m_Renderer != null ? m_Renderer.material.shader.name : "n/a")} | has _ReflectionTex: {(m_Renderer != null && m_Renderer.material.HasProperty(s_reflectionTex))}");
         }
 
         // This is called when it's known that the object will be rendered by some
@@ -311,8 +117,10 @@ namespace App
             }
             s_InsideRendering = true;
 
+            var stereo = cam.stereoEnabled;
+
             Camera reflectionCamera;
-            CreateMirrorObjects(cam, out reflectionCamera);
+            CreateMirrorObjects(cam, stereo, out reflectionCamera);
 
             // find out the reflection plane: position and normal in world space
             Vector3 pos = transform.position;
@@ -325,31 +133,83 @@ namespace App
 
             UpdateCameraModes(cam, reflectionCamera);
 
-            // Render reflection
             // Reflect camera around reflection plane
             float d = -Vector3.Dot(normal, pos) - m_ClipPlaneOffset;
             Vector4 reflectionPlane = new Vector4(normal.x, normal.y, normal.z, d);
 
             Matrix4x4 reflection = Matrix4x4.zero;
             CalculateReflectionMatrix(ref reflection, reflectionPlane);
-            Vector3 oldpos = cam.transform.position;
-            Vector3 newpos = reflection.MultiplyPoint(oldpos);
-            reflectionCamera.worldToCameraMatrix = cam.worldToCameraMatrix * reflection;
+
+            if (stereo)
+            {
+                RenderReflection(reflectionCamera,
+                    cam.GetStereoViewMatrix(Camera.StereoscopicEye.Left),
+                    cam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left),
+                    reflection, pos, normal, m_ReflectionTextureLeft);
+
+                RenderReflection(reflectionCamera,
+                    cam.GetStereoViewMatrix(Camera.StereoscopicEye.Right),
+                    cam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right),
+                    reflection, pos, normal, m_ReflectionTextureRight);
+            }
+            else
+            {
+                RenderReflection(reflectionCamera,
+                    cam.worldToCameraMatrix,
+                    cam.projectionMatrix,
+                    reflection, pos, normal, m_ReflectionTextureLeft);
+            }
+
+            Material[] materials = m_Renderer.sharedMaterials;
+            var materialsWithReflectionTex = 0;
+            foreach (Material mat in materials)
+            {
+                if (mat.HasProperty(s_reflectionTex))
+                {
+                    mat.SetTexture(s_reflectionTex, m_ReflectionTextureLeft);
+                    materialsWithReflectionTex++;
+                }
+
+                if (mat.HasProperty(s_reflectionTexRight))
+                    mat.SetTexture(s_reflectionTexRight, stereo ? m_ReflectionTextureRight : m_ReflectionTextureLeft);
+            }
+
+            if (m_RenderLogCount < MaxRenderLogs)
+            {
+                m_RenderLogCount++;
+                Debug.Log($"[MirrorReflection] Rendered reflection #{m_RenderLogCount} on '{name}' | cam: {cam.name} @ {cam.transform.position} | stereo: {stereo} | texture: {m_ReflectionTextureLeft.width}px created: {m_ReflectionTextureLeft.IsCreated()} | materials with _ReflectionTex: {materialsWithReflectionTex}/{materials.Length}");
+            }
+
+            // Restore pixel light count
+            if (m_DisablePixelLights)
+                QualitySettings.pixelLightCount = oldPixelLightCount;
+
+            s_InsideRendering = false;
+        }
+
+        // Renders the scene reflected around the plane, from a single eye's point of view.
+        // eyeView/eyeProjection must be the matrices the main render actually uses for that
+        // eye - that is what makes the screen-space sampling in the shader line up exactly.
+        private void RenderReflection(Camera reflectionCamera, Matrix4x4 eyeView, Matrix4x4 eyeProjection,
+            Matrix4x4 reflection, Vector3 planePos, Vector3 planeNormal, RenderTexture target)
+        {
+            reflectionCamera.worldToCameraMatrix = eyeView * reflection;
 
             // Setup oblique projection matrix so that near plane is our reflection
             // plane. This way we clip everything below/above it for free.
-            Vector4 clipPlane = CameraSpacePlane(reflectionCamera, pos, normal, 1.0f);
-            //Matrix4x4 projection = cam.projectionMatrix;
-            Matrix4x4 projection = cam.CalculateObliqueMatrix(clipPlane);
-            reflectionCamera.projectionMatrix = projection;
+            Vector4 clipPlane = CameraSpacePlane(reflectionCamera, planePos, planeNormal, 1.0f);
+            reflectionCamera.projectionMatrix = eyeProjection;
+            reflectionCamera.projectionMatrix = reflectionCamera.CalculateObliqueMatrix(clipPlane);
 
             reflectionCamera.cullingMask = ~(1 << 4) & m_ReflectLayers.value; // never render water layer
-            reflectionCamera.targetTexture = m_ReflectionTexture;
-            GL.invertCulling = true;
-            reflectionCamera.transform.position = newpos;
-            Vector3 euler = cam.transform.eulerAngles;
-            reflectionCamera.transform.eulerAngles = new Vector3(0, euler.y, euler.z);
+            reflectionCamera.targetTexture = target;
 
+            // Mirror the eye position across the plane so _WorldSpaceCameraPos is correct
+            // in the reflection render.
+            Vector3 eyePos = eyeView.inverse.GetColumn(3);
+            reflectionCamera.transform.position = reflection.MultiplyPoint(eyePos);
+
+            GL.invertCulling = true;
             try
             {
                 reflectionCamera.Render();
@@ -360,41 +220,22 @@ namespace App
                 // permanently disabling every mirror in the scene with no visible error.
                 Debug.LogError($"[MirrorReflection] reflectionCamera.Render() threw on '{name}': {e}");
             }
-
-            reflectionCamera.transform.position = oldpos;
             GL.invertCulling = false;
-            Material[] materials = m_Renderer.sharedMaterials;
-            var materialsWithReflectionTex = 0;
-            foreach (Material mat in materials)
-            {
-                if (mat.HasProperty("_ReflectionTex"))
-                {
-                    mat.SetTexture("_ReflectionTex", m_ReflectionTexture);
-                    materialsWithReflectionTex++;
-                }
-            }
-
-            if (m_RenderLogCount < MaxRenderLogs)
-            {
-                m_RenderLogCount++;
-                Debug.Log($"[MirrorReflection] Rendered reflection #{m_RenderLogCount} on '{name}' | cam: {cam.name} @ {cam.transform.position} | texture: {m_ReflectionTexture.width}px created: {m_ReflectionTexture.IsCreated()} | cullingMask: {reflectionCamera.cullingMask} | materials with _ReflectionTex: {materialsWithReflectionTex}/{materials.Length}");
-            }
-
-            // Restore pixel light count
-            if (m_DisablePixelLights)
-                QualitySettings.pixelLightCount = oldPixelLightCount;
-
-            s_InsideRendering = false;
         }
-
 
         // Cleanup all the objects we possibly have created
         void OnDisable()
         {
-            if (m_ReflectionTexture)
+            if (m_ReflectionTextureLeft)
             {
-                DestroyImmediate(m_ReflectionTexture);
-                m_ReflectionTexture = null;
+                DestroyImmediate(m_ReflectionTextureLeft);
+                m_ReflectionTextureLeft = null;
+            }
+
+            if (m_ReflectionTextureRight)
+            {
+                DestroyImmediate(m_ReflectionTextureRight);
+                m_ReflectionTextureRight = null;
             }
 
             try
@@ -445,20 +286,33 @@ namespace App
         }
 
         // On-demand create any objects we need
-        private void CreateMirrorObjects(Camera currentCamera, out Camera reflectionCamera)
+        private void CreateMirrorObjects(Camera currentCamera, bool stereo, out Camera reflectionCamera)
         {
             reflectionCamera = null;
 
-            // Reflection render texture
-            if (!m_ReflectionTexture || m_OldReflectionTextureSize != m_TextureSize)
+            // Reflection render textures
+            if (!m_ReflectionTextureLeft || m_OldReflectionTextureSize != m_TextureSize)
             {
-                if (m_ReflectionTexture)
-                    DestroyImmediate(m_ReflectionTexture);
-                m_ReflectionTexture = new RenderTexture(m_TextureSize, m_TextureSize, 16);
-                m_ReflectionTexture.name = "__MirrorReflection" + GetInstanceID();
-                m_ReflectionTexture.isPowerOfTwo = true;
-                m_ReflectionTexture.hideFlags = HideFlags.DontSave;
+                if (m_ReflectionTextureLeft)
+                    DestroyImmediate(m_ReflectionTextureLeft);
+                m_ReflectionTextureLeft = CreateReflectionTexture("L");
                 m_OldReflectionTextureSize = m_TextureSize;
+            }
+
+            if (stereo && (!m_ReflectionTextureRight || m_ReflectionTextureRight.width != m_TextureSize))
+            {
+                if (m_ReflectionTextureRight)
+                    DestroyImmediate(m_ReflectionTextureRight);
+                m_ReflectionTextureRight = CreateReflectionTexture("R");
+            }
+
+            RenderTexture CreateReflectionTexture(string eye)
+            {
+                var rt = new RenderTexture(m_TextureSize, m_TextureSize, 16);
+                rt.name = "__MirrorReflection" + eye + GetInstanceID();
+                rt.isPowerOfTwo = true;
+                rt.hideFlags = HideFlags.DontSave;
+                return rt;
             }
 
             // Camera for reflection

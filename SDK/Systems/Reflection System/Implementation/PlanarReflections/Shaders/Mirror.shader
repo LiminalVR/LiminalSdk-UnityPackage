@@ -1,8 +1,10 @@
-﻿Shader "FX/MirrorReflection"
+Shader "FX/MirrorReflection"
 {
     Properties
     {
+        // Left-eye (or mono) reflection. Kept as _ReflectionTex so existing materials/scripts keep working.
         [HideInInspector] _ReflectionTex("", 2D) = "white" {}
+        [HideInInspector] _ReflectionTexRight("", 2D) = "white" {}
 
         _RampTex("Ramp", 2D) = "white" {}
         _Color("Color", Color) = (0.5, 0.5, 0.5, 1)
@@ -19,25 +21,6 @@
 
         [MaterialToggle] _EnableTint("_EnableTint", Float) = 0
         [MaterialToggle] _EnableRampAlpha("_EnableRampAlpha", Float) = 1
-
-        [MaterialToggle] _OffsetEnabled("Offset Enabled", Float) = 0
-
-        [MaterialToggle] _Quest("Quest", Float) = 0
-        [MaterialToggle] _Rift("Rift", Float) = 0
-        [MaterialToggle] _Debug("Debug", Float) = 0
-        [MaterialToggle] _RiftS("RiftS", Float) = 0
-        [MaterialToggle] _Vive("Vive", Float) = 0
-        [MaterialToggle] _VivePro("VivePro", Float) = 0
-
-         _OffsetRX("RX", Float) = 1.17
-         _OffsetRY("RY", Float) = 1
-         _OffsetRZ("RZ", Float) = -0.173
-         _OffsetRW("RW", Float) = 0
-         _OffsetX("Offset", Float) =  0.85
-
-         [MaterialToggle] _UseL("UseL", Float) = 0
-         _OffsetLX("LX", Float) = 1.043458
-         _OffsetLZ("LZ", Float) = -0.03977372
     }
         SubShader
         {
@@ -73,7 +56,11 @@
                 sampler2D _MainTex;
                 float4 _MainTex_ST;
 
-                sampler2D _ReflectionTex;
+                // The reflection is rendered per eye with that eye's actual view/projection
+                // matrices, so sampling at the fragment's own screen position is exact on
+                // any headset/IPD - no per-device correction needed.
+                sampler2D _ReflectionTex;      // left eye, or mono when stereo is off
+                sampler2D _ReflectionTexRight;
 
                 sampler2D _RampTex;
                 float4 _RampTex_ST;
@@ -90,24 +77,7 @@
                 fixed _FadeDistance;
                 fixed _FadeScaleX;
 
-                float _OffsetRX;
-                float _OffsetRY;
-                float _OffsetRZ;
-                float _OffsetRW;
-                float _OffsetLX;
-                float _OffsetLZ;
-
-                float _OffsetX;
-                float _OffsetEnabled;
                 float _CustomTime; // (relies on a script running on the CPU - will not work without it)
-
-                float _Rift;
-                float _Quest;
-                float _Debug;
-                float _RiftS;
-                float _Vive;
-                float _VivePro;
-                float _UseL;
 
                 float _EnableTint;
                 float _EnableRampAlpha;
@@ -155,112 +125,32 @@
 
                     float2 uvRefl = i.screenPos.xy / i.screenPos.w;
 
-					// Remove this on PC
-					if(_OffsetEnabled > 0)
-                    {
-                        if (unity_StereoEyeIndex == 0) {
-                            if(_Debug)
-                            {
-                                if (_UseL) 
-                                {
-                                    float4 scaleOffset = float4(_OffsetLX, _OffsetRY, _OffsetLZ, _OffsetRW);
-                                    uvRefl = (uvRefl - scaleOffset.zw) / scaleOffset.xy;
-                                }
-                                else 
-                                {
-                                    uvRefl.x *= _OffsetX;
-                                }
-                            }
-                            else
-                            {
-                                if(_Rift == 1)
-                                {
-                                    float4 scaleOffset = float4(1.15, _OffsetRY, 0, _OffsetRW);
-                                    uvRefl = (uvRefl - scaleOffset.zw) / scaleOffset.xy;
-                                }
-
-                                if(_Quest == 1)
-                                {
-                                    uvRefl.x *= 0.85;
-                                }
-
-                                if(_RiftS)
-                                {
-                                    uvRefl.x *= 1.03;
-                                }
-
-                                if (_Vive)
-                                {
-                                    uvRefl.x *= 0.94;
-                                }
-
-                                if (_VivePro)
-                                {
-                                    uvRefl.x *= 0.94;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            if(_Debug)
-                            {
-                                    float4 scaleOffset = float4(_OffsetRX, _OffsetRY, _OffsetRZ, _OffsetRW);
-                                    uvRefl = (uvRefl - scaleOffset.zw) / scaleOffset.xy;
-                            }else{
-                                if(_Rift == 1)
-                                {
-                                    float4 scaleOffset = float4(1.15, _OffsetRY, -0.155, _OffsetRW);
-                                    uvRefl = (uvRefl - scaleOffset.zw) / scaleOffset.xy;
-                                }
-
-                                if(_Quest == 1)
-                                {
-                                    float4 scaleOffset = float4(_OffsetRX, _OffsetRY, _OffsetRZ, _OffsetRW);
-                                    uvRefl = (uvRefl - scaleOffset.zw) / scaleOffset.xy;
-                                }
-
-                                if(_RiftS)
-                                {
-                                    float4 scaleOffset = float4(1, _OffsetRY, 0.02, _OffsetRW);
-                                    uvRefl = (uvRefl - scaleOffset.zw) / scaleOffset.xy;
-                                }
-
-                                if (_Vive)
-                                {
-                                    float4 scaleOffset = float4(1, 1, -0.03, 0);
-                                    uvRefl = (uvRefl - scaleOffset.zw) / scaleOffset.xy;
-                                }
-
-                                if (_VivePro)
-                                {
-                                    float4 scaleOffset = float4(1.05, 1, -0.056, 0);
-                                    uvRefl = (uvRefl - scaleOffset.zw) / scaleOffset.xy;
-                                }
-                            }
-                        }
-                    }
-					
-                    fixed4 refl = tex2D(_ReflectionTex, uvRefl)* _ReflectionStrength;
+                    fixed4 refl;
+                    if (unity_StereoEyeIndex == 0)
+                        refl = tex2D(_ReflectionTex, uvRefl);
+                    else
+                        refl = tex2D(_ReflectionTexRight, uvRefl);
+                    refl *= _ReflectionStrength;
 
                     // Fade reflection over distance
                     fixed2 delta = _WorldSpaceCameraPos.xz - i.worldPos.xz;
                     fixed dist = length(fixed2(delta.x * _FadeScaleX, delta.y));
-                    
+
                     //refl *= saturate(pow(dist / _FadeDistance, 4));
-                    
+
                     refl = saturate(refl - Luminance(main) / 6);
 
                     fixed4 col = saturate(main + refl);
 
                     // Apply ramp to fade toward horizon color
                     col = lerp(col, _ColorHorizon, 1 - ramp);
-                    
+
                     if(_EnableTint)
                         col *= _Color;
 
                     if(_EnableRampAlpha)
                         col.a = lerp(1,0, 1 - ramp);
-                    
+
                     return col;
                 }
                 ENDCG
