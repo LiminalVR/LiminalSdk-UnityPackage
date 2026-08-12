@@ -6,7 +6,36 @@ using Liminal.SDK.VR.Input;
 /// </summary>
 public static class OVRUtils
 {
-    public static bool IsOculusQuest => OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Oculus_Quest;
+    /// <summary>
+    /// True for the whole Quest family. MUST be a range check, not equality:
+    /// Quest 2/3/Pro report SystemHeadset values this OVRPlugin's enum
+    /// predates (Oculus_Quest_2 = 9, ...). Under Meta's compatibility mode
+    /// the reported value depends on the manifest — an app declaring
+    /// com.oculus.supportedDevices is told the real (or emulated newer)
+    /// device, and the old equality check then silently flipped every
+    /// caller into the GearVR-remote branch: controllers "disconnected",
+    /// A/trigger dead while tracking worked (Everbloom, Quest 3,
+    /// 2026-08-12). Mobile values end below the PC block (Rift_DK1 =
+    /// 0x1000), so anything in between is a Quest-family headset.
+    /// </summary>
+    public static bool IsOculusQuest
+    {
+        get
+        {
+            var headset = OVRPlugin.GetSystemHeadsetType();
+            // Measured on device (2026-08-12): under the recognised
+            // contract this old plugin cannot decode the reported device
+            // AT ALL and returns None (0) - not a value above Quest 1's.
+            // On an Android build of this SDK, an unidentifiable headset
+            // IS a newer Quest; GearVR/Go hardware identifies correctly
+            // and is long gone regardless. Editor keeps the old behaviour
+            // (None there means "no device", not "newer than the enum").
+            if (headset == OVRPlugin.SystemHeadset.None)
+                return UnityEngine.Application.platform == UnityEngine.RuntimePlatform.Android;
+            return headset >= OVRPlugin.SystemHeadset.Oculus_Quest
+                && (int)headset < (int)OVRPlugin.SystemHeadset.Rift_DK1;
+        }
+    }
     public static bool IsOculusGo => OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Oculus_Go;
 
     /// <summary>
