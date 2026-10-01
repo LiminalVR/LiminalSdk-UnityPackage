@@ -6,6 +6,7 @@ Shader "Liminal/PostFX/ColorGrading"
 		_Brightness("Brightness", Range(0, 2)) = 1
 		_Contrast("Contrast", Range(0, 2)) = 1
 		_HueShift("Hue Shift (Degrees)", Range(-180, 180)) = 0
+		_Saturation("Saturation", Range(0, 2)) = 1
 	}
 	SubShader
 	{
@@ -21,6 +22,7 @@ Shader "Liminal/PostFX/ColorGrading"
 			#pragma vertex vert
 			#pragma fragment frag
 			#include "UnityCG.cginc"
+			#include "ColorGrade.cginc"
 
 			// Screenspace texture macros resolve to a Texture2DArray under
 			// Single Pass Instanced (Vulkan) and Multiview (GLES3) on Quest.
@@ -29,6 +31,7 @@ Shader "Liminal/PostFX/ColorGrading"
 			half _Brightness;
 			half _Contrast;
 			half _HueShift;
+			half _Saturation;
 
 			struct appdata
 			{
@@ -55,38 +58,13 @@ Shader "Liminal/PostFX/ColorGrading"
 				return o;
 			}
 
-			// float (not half) here — half precision causes hue banding on mobile.
-			float3 RGBToHSV(float3 c)
-			{
-				float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-				float4 p = lerp(float4(c.bg, K.wz), float4(c.gb, K.xy), step(c.b, c.g));
-				float4 q = lerp(float4(p.xyw, c.r), float4(c.r, p.yzx), step(p.x, c.r));
-				float d = q.x - min(q.w, q.y);
-				float e = 1.0e-4;
-				return float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-			}
-
-			float3 HSVToRGB(float3 c)
-			{
-				float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-				float3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www);
-				return c.z * lerp(K.xxx, saturate(p - K.xxx), c.y);
-			}
-
 			half4 frag(v2f i) : SV_Target
 			{
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
 
 				half4 col = UNITY_SAMPLE_SCREENSPACE_TEXTURE(_MainTex, UnityStereoScreenSpaceUVAdjust(i.uv, _MainTex_ST));
-
-				float3 hsv = RGBToHSV(col.rgb);
-				hsv.x = frac(hsv.x + _HueShift * (1.0 / 360.0) + 1.0);
-				col.rgb = HSVToRGB(hsv);
-
-				col.rgb = (col.rgb - 0.5) * _Contrast + 0.5;
-				col.rgb *= _Brightness;
-
-				return half4(saturate(col.rgb), col.a);
+				col.rgb = LiminalApplyColorGrade(col.rgb, _Brightness, _Contrast, _HueShift, _Saturation);
+				return col;
 			}
 			ENDCG
 		}
