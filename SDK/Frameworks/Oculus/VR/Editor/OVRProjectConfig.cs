@@ -169,6 +169,10 @@ public class OVRProjectConfig : ScriptableObject
 			projectConfig.insightPassthroughEnabled = false;
 			AssetDatabase.CreateAsset(projectConfig, oculusProjectConfigAssetPath);
 		}
+		// A fresh OpenXR project may not have a legacy Oculus config. During a
+		// player build it cannot be created; shader callbacks already handle null.
+		if (projectConfig == null)
+			return null;
 		// Force migration to Quest device if still on legacy GearVR/Go device type
 		if (projectConfig.targetDeviceTypes.Contains((DeviceType)0)) // deprecated GearVR/Go device
 		{
