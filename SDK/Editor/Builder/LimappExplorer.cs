@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -337,7 +337,7 @@ namespace Liminal.SDK.Build
             for (var i = 0; i < assmeblies.Count; i++)
             {
                 var asmBytes = assmeblies[i];
-                var asm = Assembly.Load(asmBytes);
+                var asm = UnityEngine.Assemblies.CurrentAssemblies.LoadFromBytes(asmBytes);
               
                 File.WriteAllBytes($"{assemblyFolder}/{asm.GetName().Name}.dll", asmBytes);
             }

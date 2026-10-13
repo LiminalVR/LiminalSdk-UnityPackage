@@ -1,4 +1,4 @@
-﻿//======= Copyright (c) Valve Corporation, All rights reserved. ===============
+//======= Copyright (c) Valve Corporation, All rights reserved. ===============
 
 using UnityEngine;
 using Valve.VR;
@@ -121,8 +121,8 @@ namespace Valve.VR
 
         private static void FindPreinitializeMethod()
         {
-            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (int assemblyIndex = 0; assemblyIndex < assemblies.Length; assemblyIndex++)
+            var assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
+            for (int assemblyIndex = 0; assemblyIndex < assemblies.Count; assemblyIndex++)
             {
                 Assembly assembly = assemblies[assemblyIndex];
                 Type type = assembly.GetType(SteamVR_Input_Generator_Names.fullActionsClassName);
@@ -1642,7 +1642,7 @@ namespace Valve.VR
         {
             var type = Type.GetType(typeName);
             if (type != null) return type;
-            foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var a in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
             {
                 type = a.GetType(typeName);
                 if (type != null)

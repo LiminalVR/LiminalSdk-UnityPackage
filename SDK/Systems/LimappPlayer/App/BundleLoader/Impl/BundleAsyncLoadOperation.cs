@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Reflection;
 using Liminal.Core.Fader;
@@ -190,7 +190,7 @@ namespace Liminal.Platform.Experimental.App.BundleLoader.Impl
             }
 
             // Load the assembly into the current application domain
-            var asm = Assembly.Load(bytes);
+            var asm = UnityEngine.Assemblies.CurrentAssemblies.LoadFromBytes(bytes);
 
             // Add the serializable types from the assembly to the global list
             // This is required by the app to be able to correctly deserialize some types after being imported

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -151,5 +151,5 @@ public static class LimappErrorFinder
     }
 
     static Assembly GetAssemblyByName(string assemblyName)
-        => AppDomain.CurrentDomain.GetAssemblies().SingleOrDefault(assembly => assembly.GetName().Name == assemblyName);
+        => UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies().SingleOrDefault(assembly => assembly.GetName().Name == assemblyName);
 }

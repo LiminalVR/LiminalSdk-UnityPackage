@@ -1,4 +1,4 @@
-﻿using Liminal.SDK.Build;
+using Liminal.SDK.Build;
 using Liminal.SDK.Core;
 using Liminal.SDK.Editor.Build;
 using Liminal.SDK.Extensions;
@@ -86,7 +86,7 @@ namespace Liminal.SDK.Tools
             scene = EditorSceneManager.OpenScene(scene.path, OpenSceneMode.Single);
             
             var baseType = typeof(ExperienceApp);
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
             var assembly = assemblies.First(x => x.FullName.Contains("Assembly-CSharp,"));
 
             var types = assembly.GetTypes();

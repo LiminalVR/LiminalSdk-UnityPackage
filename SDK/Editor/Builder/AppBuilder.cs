@@ -1,4 +1,4 @@
-﻿using Liminal.SDK.Build;
+using Liminal.SDK.Build;
 using Liminal.SDK.Core;
 using Liminal.SDK.Editor.Serialization;
 using Liminal.SDK.Serialization;
@@ -288,7 +288,7 @@ namespace Liminal.SDK.Editor.Build
 
             foreach (var asmBytes in appPack.Assemblies)
             {
-                var asm = System.Reflection.Assembly.Load(asmBytes);
+                var asm = UnityEngine.Assemblies.CurrentAssemblies.LoadFromBytes(asmBytes);
                 File.WriteAllBytes(Path.Combine(assemblyFolder, asm.GetName().Name + ".dll"), asmBytes);
             }
 

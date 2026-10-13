@@ -195,7 +195,11 @@ public class OVRADBTool
 
 		if (!string.IsNullOrEmpty(errorString))
 		{
-			if (errorString.Contains("Warning"))
+			if (IsSuccessfulDaemonStartup(exitCode, errorString))
+			{
+				UnityEngine.Debug.Log("OVRADBTool " + errorString);
+			}
+			else if (errorString.Contains("Warning"))
 			{
 				UnityEngine.Debug.LogWarning("OVRADBTool " + errorString);
 			}
@@ -206,6 +210,29 @@ public class OVRADBTool
 		}
 
 		return exitCode;
+	}
+
+	// ADB writes normal daemon startup to stderr. Accept only the complete,
+	// known startup sequence from a successful command; retain other diagnostics.
+	private static bool IsSuccessfulDaemonStartup(int exitCode, string diagnostic)
+	{
+		if (exitCode != 0 || string.IsNullOrWhiteSpace(diagnostic)) return false;
+		const string startingPrefix = "* daemon not running; starting now at tcp:";
+		bool starting = false, started = false;
+		foreach (string rawLine in diagnostic.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+		{
+			string line = rawLine.Trim();
+			if (line.Length == 0) continue;
+			if (line.StartsWith(startingPrefix, StringComparison.Ordinal))
+			{
+				int port;
+				if (!int.TryParse(line.Substring(startingPrefix.Length), out port) || port < 1 || port > 65535) return false;
+				starting = true;
+			}
+			else if (line == "* daemon started successfully") started = true;
+			else return false;
+		}
+		return starting && started;
 	}
 
 	public Process RunCommandAsync(string[] arguments, DataReceivedEventHandler outputDataRecievedHandler)

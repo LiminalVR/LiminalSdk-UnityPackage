@@ -45,9 +45,14 @@ namespace App
                     return new UnityXRDevice();
 #endif
                 case ESDKType.OVR:
+#if UNITY_6000_7_OR_NEWER
+                    // Oculus' legacy loader was removed from Unity. Quest and Link use OpenXR.
+                    return new UnityXRDevice();
+#else
                     Debug.Log("[Device Utils] - Creating OVR");
                     XRSettings.enabled = true;
                     return new GearVRDevice();
+#endif
 
                 case ESDKType.OpenVR:
                     Debug.Log("[Device Utils] - Creating OpenVR");

@@ -107,7 +107,12 @@ namespace Valve.VR
 
         public static bool usingNativeSupport
         {
+#if UNITY_6000_7_OR_NEWER
+            // The legacy native VR integration was removed. XR loaders own rendering now.
+            get { return false; }
+#else
             get { return XRDevice.GetNativePtr() != System.IntPtr.Zero; }
+#endif
         }
 
         public static SteamVR_Settings settings { get; private set; }

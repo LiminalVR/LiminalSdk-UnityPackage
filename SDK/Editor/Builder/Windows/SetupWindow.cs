@@ -537,7 +537,7 @@ namespace Liminal.SDK.Build
             Type best = baseType.IsAbstract ? null : baseType;
             int bestDepth = 0;
 
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
             {
                 Type[] types;
                 try { types = assembly.GetTypes(); }

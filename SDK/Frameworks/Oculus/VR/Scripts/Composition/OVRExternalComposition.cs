@@ -38,18 +38,18 @@ public class OVRExternalComposition : OVRComposition
 	private bool skipFrame = false;
 	private float fpsThreshold = 80.0f;
 	private bool isFrameSkipped = true;
-	public bool renderCombinedFrame = false;
-	public AudioListener audioListener;
-	public OVRMRAudioFilter audioFilter;
-	public RenderTexture[] mrcRenderTextureArray = new RenderTexture[2];
-	public int frameIndex;
-	public int lastMrcEncodeFrameSyncId;
+	[NonSerialized] public bool renderCombinedFrame = false;
+	[NonSerialized] public AudioListener audioListener;
+	[NonSerialized] public OVRMRAudioFilter audioFilter;
+	[NonSerialized] public RenderTexture[] mrcRenderTextureArray = new RenderTexture[2];
+	[NonSerialized] public int frameIndex;
+	[NonSerialized] public int lastMrcEncodeFrameSyncId;
 
 	// when rendererSupportsCameraRect is false, mrcRenderTextureArray would only store the background frame (regular width)
-	public RenderTexture[] mrcForegroundRenderTextureArray = new RenderTexture[2];
+	[NonSerialized] public RenderTexture[] mrcForegroundRenderTextureArray = new RenderTexture[2];
 
 	// this is used for moving MRC camera where we would need to be able to synchronize the camera position from the game with that on the client for composition
-	public double[] cameraPoseTimeArray = new double[2];
+	[NonSerialized] public double[] cameraPoseTimeArray = new double[2];
 #endif
 
 	public override OVRManager.CompositionMethod CompositionMethod() { return OVRManager.CompositionMethod.External; }

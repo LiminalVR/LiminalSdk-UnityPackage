@@ -2,17 +2,19 @@ namespace App
 {
     using UnityEngine;
     using UnityEngine.XR;
+    using UnityEngine.Rendering;
     using System.Collections;
+    using System.Collections.Generic;
 
     // This is in fact just the Water script from Pro Standard Assets,
     // just with refraction stuff removed.
 
-    // The reflection is rendered once per eye using the eye's actual view and
-    // projection matrices from the XR runtime (GetStereoViewMatrix/GetStereoProjectionMatrix).
-    // Because the reflection render shares the eye's exact projection, a point on the
-    // mirror plane lands on the same screen position in both renders, so the shader can
-    // sample the reflection texture at the fragment's own screen UV with no per-headset
-    // or per-IPD correction. This replaces the old hand-tuned Ipd58/63/68 offset models.
+    // Preserve the authored reflection-plane offsets, projection and shader math.
+    // SRP snapshots the running provider's ordinary two-eye render parameters;
+    // Camera.GetStereoViewMatrix may still contain URP's previous-frame override.
+    // Before-render snapshots do not prove equivalence after later XR reconfiguration
+    // or GPU late latching. Registration, winding, clipping and frame cost still
+    // require rendered mono/stereo and moving-head tests before deployment.
 
     public class MirrorReflection : MonoBehaviour
     {
@@ -37,6 +39,7 @@ namespace App
 
         // Diagnostic logging - only log the first few render attempts to avoid per-frame spam.
         private int m_RenderLogCount;
+        private readonly List<XRDisplaySubsystem> m_XRDisplays = new List<XRDisplaySubsystem>();
         private const int MaxRenderLogs = 5;
 
 #if SMOOTH_CAM
@@ -86,7 +89,64 @@ namespace App
         // camera. We render reflections and do other updates here.
         // Because the script executes in edit mode, reflections for the scene view
         // camera will just work!
+        private void OnEnable()
+        {
+            Application.onBeforeRender += OnBeforeRender;
+        }
+
+        // Submit SRP requests before the main render, outside the pipeline's
+        // render loop. End-of-frame requests would leave a moving VR mirror
+        // displaying the previous frame's view. GPU/XR alignment still needs
+        // verification with the actual provider and late-latching settings.
+        private void OnBeforeRender()
+        {
+            if (GraphicsSettings.currentRenderPipeline == null)
+                return;
+            // Graphics-enabled batch mode does not necessarily dispatch this
+            // event. Mono batch cameras use LateUpdate below; normal sessions
+            // and stereo retain the provider-timed before-render path.
+            Camera camera = Cam;
+            if (Application.isBatchMode && camera != null && !camera.stereoEnabled)
+                return;
+            RenderMirror();
+        }
+
+        private void LateUpdate()
+        {
+            if (!Application.isBatchMode || GraphicsSettings.currentRenderPipeline == null)
+                return;
+            Camera camera = Cam;
+            if (camera != null && !camera.stereoEnabled)
+                RenderMirror();
+        }
+
+        // Read-only native identity association for scoped camera rendering.
+        // Hidden reflection cameras are separate roots; their source camera
+        // supplies the owning app without names or hierarchy changes.
+        public bool TryGetSourceCamera(Camera reflectionCamera, out Camera sourceCamera)
+        {
+            sourceCamera = null;
+            if (reflectionCamera == null)
+                return false;
+            foreach (DictionaryEntry entry in m_ReflectionCameras)
+            {
+                if (entry.Value is Camera created && created == reflectionCamera &&
+                    entry.Key is Camera original && original != null)
+                {
+                    sourceCamera = original;
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public void OnWillRenderObject()
+        {
+            if (GraphicsSettings.currentRenderPipeline == null)
+                RenderMirror();
+        }
+
+        private void RenderMirror()
         {
             var log = m_RenderLogCount < MaxRenderLogs;
 
@@ -115,76 +175,89 @@ namespace App
                 if (log) { m_RenderLogCount++; Debug.Log($"[MirrorReflection] OnWillRenderObject skipped on '{name}': s_InsideRendering is true (stuck from an earlier exception?)"); }
                 return;
             }
-            s_InsideRendering = true;
+            // OnBeforeRender is not a renderer-visibility callback. Preserve
+            // the source camera's layer exclusion before allocating/rendering.
+            if ((cam.cullingMask & (1 << m_Renderer.gameObject.layer)) == 0)
+                return;
 
-            var stereo = cam.stereoEnabled;
-
-            Camera reflectionCamera;
-            CreateMirrorObjects(cam, stereo, out reflectionCamera);
-
-            // find out the reflection plane: position and normal in world space
-            Vector3 pos = transform.position;
-            Vector3 normal = transform.up + Offset;
-
-            // Optionally disable pixel lights for reflection
             int oldPixelLightCount = QualitySettings.pixelLightCount;
-            if (m_DisablePixelLights)
-                QualitySettings.pixelLightCount = 0;
-
-            UpdateCameraModes(cam, reflectionCamera);
-
-            // Reflect camera around reflection plane
-            float d = -Vector3.Dot(normal, pos) - m_ClipPlaneOffset;
-            Vector4 reflectionPlane = new Vector4(normal.x, normal.y, normal.z, d);
-
-            Matrix4x4 reflection = Matrix4x4.zero;
-            CalculateReflectionMatrix(ref reflection, reflectionPlane);
-
-            if (stereo)
+            s_InsideRendering = true;
+            try
             {
-                RenderReflection(reflectionCamera,
-                    cam.GetStereoViewMatrix(Camera.StereoscopicEye.Left),
-                    cam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left),
-                    reflection, pos, normal, m_ReflectionTextureLeft);
+                var stereo = cam.stereoEnabled;
+                EyeMatrices eyes = default;
+                // No eye passes this frame (session not yet visible, headset
+                // idle, unfocused editor): keep the previous reflection.
+                if (stereo && !TryReadEyeMatrices(cam, out eyes))
+                    return;
 
-                RenderReflection(reflectionCamera,
-                    cam.GetStereoViewMatrix(Camera.StereoscopicEye.Right),
-                    cam.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right),
-                    reflection, pos, normal, m_ReflectionTextureRight);
-            }
-            else
-            {
-                RenderReflection(reflectionCamera,
-                    cam.worldToCameraMatrix,
-                    cam.projectionMatrix,
-                    reflection, pos, normal, m_ReflectionTextureLeft);
-            }
+                Camera reflectionCamera;
+                CreateMirrorObjects(cam, stereo, out reflectionCamera);
 
-            Material[] materials = m_Renderer.sharedMaterials;
-            var materialsWithReflectionTex = 0;
-            foreach (Material mat in materials)
-            {
-                if (mat.HasProperty(s_reflectionTex))
+                // find out the reflection plane: position and normal in world space
+                Vector3 pos = transform.position;
+                Vector3 normal = transform.up + Offset;
+
+                // Optionally disable pixel lights for reflection
+                if (m_DisablePixelLights)
+                    QualitySettings.pixelLightCount = 0;
+
+                UpdateCameraModes(cam, reflectionCamera);
+
+                // Reflect camera around reflection plane
+                float d = -Vector3.Dot(normal, pos) - m_ClipPlaneOffset;
+                Vector4 reflectionPlane = new Vector4(normal.x, normal.y, normal.z, d);
+
+                Matrix4x4 reflection = Matrix4x4.zero;
+                CalculateReflectionMatrix(ref reflection, reflectionPlane);
+
+                if (stereo)
                 {
-                    mat.SetTexture(s_reflectionTex, m_ReflectionTextureLeft);
-                    materialsWithReflectionTex++;
+                    RenderReflection(reflectionCamera,
+                        eyes.leftView,
+                        eyes.leftProjection,
+                        reflection, pos, normal, m_ReflectionTextureLeft);
+
+                    RenderReflection(reflectionCamera,
+                        eyes.rightView,
+                        eyes.rightProjection,
+                        reflection, pos, normal, m_ReflectionTextureRight);
+                }
+                else
+                {
+                    RenderReflection(reflectionCamera,
+                        cam.worldToCameraMatrix,
+                        cam.projectionMatrix,
+                        reflection, pos, normal, m_ReflectionTextureLeft);
                 }
 
-                if (mat.HasProperty(s_reflectionTexRight))
-                    mat.SetTexture(s_reflectionTexRight, stereo ? m_ReflectionTextureRight : m_ReflectionTextureLeft);
-            }
+                Material[] materials = m_Renderer.sharedMaterials;
+                var materialsWithReflectionTex = 0;
+                foreach (Material mat in materials)
+                {
+                    if (mat.HasProperty(s_reflectionTex))
+                    {
+                        mat.SetTexture(s_reflectionTex, m_ReflectionTextureLeft);
+                        materialsWithReflectionTex++;
+                    }
 
-            if (m_RenderLogCount < MaxRenderLogs)
+                    if (mat.HasProperty(s_reflectionTexRight))
+                        mat.SetTexture(s_reflectionTexRight, stereo ? m_ReflectionTextureRight : m_ReflectionTextureLeft);
+                }
+
+                if (m_RenderLogCount < MaxRenderLogs)
+                {
+                    m_RenderLogCount++;
+                    Debug.Log($"[MirrorReflection] Rendered reflection #{m_RenderLogCount} on '{name}' | cam: {cam.name} @ {cam.transform.position} | stereo: {stereo} | texture: {m_ReflectionTextureLeft.width}px created: {m_ReflectionTextureLeft.IsCreated()} | materials with _ReflectionTex: {materialsWithReflectionTex}/{materials.Length}");
+                }
+
+            }
+            finally
             {
-                m_RenderLogCount++;
-                Debug.Log($"[MirrorReflection] Rendered reflection #{m_RenderLogCount} on '{name}' | cam: {cam.name} @ {cam.transform.position} | stereo: {stereo} | texture: {m_ReflectionTextureLeft.width}px created: {m_ReflectionTextureLeft.IsCreated()} | materials with _ReflectionTex: {materialsWithReflectionTex}/{materials.Length}");
+                if (m_DisablePixelLights)
+                    QualitySettings.pixelLightCount = oldPixelLightCount;
+                s_InsideRendering = false;
             }
-
-            // Restore pixel light count
-            if (m_DisablePixelLights)
-                QualitySettings.pixelLightCount = oldPixelLightCount;
-
-            s_InsideRendering = false;
         }
 
         // Renders the scene reflected around the plane, from a single eye's point of view.
@@ -193,39 +266,127 @@ namespace App
         private void RenderReflection(Camera reflectionCamera, Matrix4x4 eyeView, Matrix4x4 eyeProjection,
             Matrix4x4 reflection, Vector3 planePos, Vector3 planeNormal, RenderTexture target)
         {
-            reflectionCamera.worldToCameraMatrix = eyeView * reflection;
-
-            // Setup oblique projection matrix so that near plane is our reflection
-            // plane. This way we clip everything below/above it for free.
-            Vector4 clipPlane = CameraSpacePlane(reflectionCamera, planePos, planeNormal, 1.0f);
-            reflectionCamera.projectionMatrix = eyeProjection;
-            reflectionCamera.projectionMatrix = reflectionCamera.CalculateObliqueMatrix(clipPlane);
-
-            reflectionCamera.cullingMask = ~(1 << 4) & m_ReflectLayers.value; // never render water layer
-            reflectionCamera.targetTexture = target;
-
-            // Mirror the eye position across the plane so _WorldSpaceCameraPos is correct
-            // in the reflection render.
-            Vector3 eyePos = eyeView.inverse.GetColumn(3);
-            reflectionCamera.transform.position = reflection.MultiplyPoint(eyePos);
-
-            GL.invertCulling = true;
+            // Unity6.7 can log and return from a null-destination request
+            // without throwing. Reject it before mutating any render state.
+            if (!target)
+                throw new System.ArgumentNullException(nameof(target));
+            RenderTexture oldTargetTexture = reflectionCamera.targetTexture;
+            RenderTexture oldActiveRenderTexture = RenderTexture.active;
+            CameraType oldCameraType = reflectionCamera.cameraType;
+            bool oldInvertCulling = GL.invertCulling;
             try
             {
-                reflectionCamera.Render();
+                reflectionCamera.worldToCameraMatrix = eyeView * reflection;
+
+                // Setup oblique projection matrix so that near plane is our reflection
+                // plane. This way we clip everything below/above it for free.
+                Vector4 clipPlane = CameraSpacePlane(reflectionCamera, planePos, planeNormal, 1.0f);
+                reflectionCamera.projectionMatrix = eyeProjection;
+                reflectionCamera.projectionMatrix = reflectionCamera.CalculateObliqueMatrix(clipPlane);
+
+                reflectionCamera.cullingMask = ~(1 << 4) & m_ReflectLayers.value; // never render water layer
+                reflectionCamera.targetTexture = target;
+
+                // Mirror the eye position across the plane so _WorldSpaceCameraPos is correct
+                // in the reflection render.
+                Vector3 eyePos = eyeView.inverse.GetColumn(3);
+                reflectionCamera.transform.position = reflection.MultiplyPoint(eyePos);
+
+                GL.invertCulling = true;
+                if (GraphicsSettings.currentRenderPipeline == null)
+                {
+                    reflectionCamera.Render();
+                }
+                else
+                {
+                    // This camera is created here, has no camera stack, and
+                    // renders one mono eye into one ordinary 2D texture. URP's
+                    // StandardRequest therefore renders only this Base camera;
+                    // it also avoids a new URP assembly dependency for SDK users.
+                    var request = new RenderPipeline.StandardRequest { destination = target };
+                    if (!RenderPipeline.SupportsRenderRequest(reflectionCamera, request))
+                        throw new System.NotSupportedException("The active render pipeline does not support the SDK mirror request.");
+                    RenderPipeline.SubmitRenderRequest(reflectionCamera, request);
+                }
             }
-            catch (System.Exception e)
+            finally
             {
-                // Without this catch an exception here leaves s_InsideRendering stuck true,
-                // permanently disabling every mirror in the scene with no visible error.
-                Debug.LogError($"[MirrorReflection] reflectionCamera.Render() threw on '{name}': {e}");
+                GL.invertCulling = oldInvertCulling;
+                reflectionCamera.targetTexture = oldTargetTexture;
+                reflectionCamera.cameraType = oldCameraType;
+                RenderTexture.active = oldActiveRenderTexture;
             }
-            GL.invertCulling = false;
+        }
+
+        private struct EyeMatrices
+        {
+            public Matrix4x4 leftView, leftProjection, rightView, rightProjection;
+        }
+
+        // Returns false when the display has nothing to render this frame;
+        // throws only for layouts the mirror genuinely cannot support.
+        private bool TryReadEyeMatrices(Camera camera, out EyeMatrices eyes)
+        {
+            if (GraphicsSettings.currentRenderPipeline == null)
+            {
+                eyes = new EyeMatrices
+                {
+                    leftView = camera.GetStereoViewMatrix(Camera.StereoscopicEye.Left),
+                    leftProjection = camera.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left),
+                    rightView = camera.GetStereoViewMatrix(Camera.StereoscopicEye.Right),
+                    rightProjection = camera.GetStereoProjectionMatrix(Camera.StereoscopicEye.Right)
+                };
+                return true;
+            }
+
+            eyes = default;
+            SubsystemManager.GetSubsystems(m_XRDisplays);
+            if (m_XRDisplays.Count > 1)
+                throw new System.NotSupportedException("Stereo mirror requires exactly one registered XR display.");
+            if (m_XRDisplays.Count == 0 || !m_XRDisplays[0].running)
+                return false;
+
+            var display = m_XRDisplays[0];
+            int passCount = display.GetRenderPassCount();
+            if (passCount == 0)
+                return false;
+            XRDisplaySubsystem.XRRenderParameter left, right;
+            if (passCount == 1)
+            {
+                display.GetRenderPass(0, out var pass);
+                if (pass.GetRenderParameterCount() != 2)
+                    throw new System.NotSupportedException("Stereo mirror requires two ordinary eye parameters.");
+                pass.GetRenderParameter(camera, 0, out left);
+                pass.GetRenderParameter(camera, 1, out right);
+            }
+            else if (passCount == 2)
+            {
+                display.GetRenderPass(0, out var leftPass);
+                display.GetRenderPass(1, out var rightPass);
+                if (leftPass.GetRenderParameterCount() != 1 || rightPass.GetRenderParameterCount() != 1)
+                    throw new System.NotSupportedException("Stereo mirror does not support incomplete or quad-view layouts.");
+                leftPass.GetRenderParameter(camera, 0, out left);
+                rightPass.GetRenderParameter(camera, 0, out right);
+            }
+            else
+            {
+                throw new System.NotSupportedException("Stereo mirror requires one two-eye pass or two single-eye passes.");
+            }
+
+            // Preserve provider pass/parameter order. Both multipass eyes may
+            // use texture array slice zero, so sorting by slice loses eye order.
+            eyes = new EyeMatrices
+            {
+                leftView = left.view, leftProjection = left.projection,
+                rightView = right.view, rightProjection = right.projection
+            };
+            return true;
         }
 
         // Cleanup all the objects we possibly have created
         void OnDisable()
         {
+            Application.onBeforeRender -= OnBeforeRender;
             if (m_ReflectionTextureLeft)
             {
                 DestroyImmediate(m_ReflectionTextureLeft);
@@ -309,7 +470,7 @@ namespace App
             RenderTexture CreateReflectionTexture(string eye)
             {
                 var rt = new RenderTexture(m_TextureSize, m_TextureSize, 16);
-                rt.name = "__MirrorReflection" + eye + GetInstanceID();
+                rt.name = "__MirrorReflection" + eye + GetEntityId();
                 rt.isPowerOfTwo = true;
                 rt.hideFlags = HideFlags.DontSave;
                 return rt;
@@ -319,9 +480,12 @@ namespace App
             reflectionCamera = m_ReflectionCameras[currentCamera] as Camera;
             if (!reflectionCamera) // catch both not-in-dictionary and in-dictionary-but-deleted-GO
             {
-                GameObject go = new GameObject("Mirror Refl Camera id" + GetInstanceID() + " for " + currentCamera.GetInstanceID(), typeof(Camera), typeof(Skybox));
+                GameObject go = new GameObject("Mirror Refl Camera id" + GetEntityId() + " for " + currentCamera.GetEntityId(), typeof(Camera), typeof(Skybox));
                 reflectionCamera = go.GetComponent<Camera>();
                 reflectionCamera.enabled = false;
+                // Each call supplies one eye's view/projection explicitly.
+                // The reflection render must not invoke XR again on this camera.
+                reflectionCamera.stereoTargetEye = StereoTargetEyeMask.None;
                 reflectionCamera.transform.position = transform.position;
                 reflectionCamera.transform.rotation = transform.rotation;
                 reflectionCamera.gameObject.AddComponent<FlareLayer>();

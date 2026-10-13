@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using Liminal.SDK.Extensions;
@@ -18,7 +18,7 @@ public static class UnityPackageManagerUtils
         get
         {
             var sdkAssembly = AppDomain.CurrentDomain.GetLoadedAssembly(sdkName);
-            var sdkLocation = sdkAssembly.Location;
+            var sdkLocation = sdkAssembly.GetLoadedAssemblyPath();
             var liminalLocation = sdkLocation.Split(new string[] { sdkSeperator }, StringSplitOptions.None)[0];
             liminalLocation = DirectoryUtils.ReplaceBackWithForwardSlashes(liminalLocation);
 

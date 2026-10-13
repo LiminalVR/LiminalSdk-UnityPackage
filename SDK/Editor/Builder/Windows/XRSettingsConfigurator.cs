@@ -46,6 +46,7 @@ namespace Liminal.SDK.Build
         // depends on the legacy OpenXR.Input.PoseControl / Vector2Control types.
         private static readonly string[] ValidationDefines =
         {
+            "UNITY_XR",
             "USE_INPUT_SYSTEM_POSE_CONTROL",
             "USE_STICK_CONTROL_THUMBSTICKS",
         };
@@ -91,6 +92,7 @@ namespace Liminal.SDK.Build
             {
                 // [Meta Quest Support] "Latency Optimization is recommended to be set to Prioritize Input Polling."
                 androidOpenXRSettings.latencyOptimization = OpenXRSettings.LatencyOptimization.PrioritizeInputPolling;
+                androidOpenXRSettings.renderMode = OpenXRSettings.RenderMode.SinglePassInstanced;
                 EditorUtility.SetDirty(androidOpenXRSettings);
 
                 // [Meta Quest Support] "Optimize Buffer Discards is only supported on Vulkan graphics API."
@@ -110,8 +112,16 @@ namespace Liminal.SDK.Build
 
             // [OpenXR] PoseControl / StickControl recommendations.
             foreach (var target in DefineTargets)
+            {
+                // This was previously a global define; with the Oculus package removed it
+                // makes bundled Oculus editor scripts reference an assembly that no longer exists.
+                var defines = PlayerSettings.GetScriptingDefineSymbols(target);
+                var cleaned = string.Join(";", defines.Split(';').Where(d => d.Trim() != "PRIORITIZE_OCULUS_XR_SETTINGS"));
+                if (cleaned != defines)
+                    PlayerSettings.SetScriptingDefineSymbols(target, cleaned);
                 foreach (var define in ValidationDefines)
                     AddScriptingDefine(target, define);
+            }
 
             Debug.Log("[XRSetup] Validation fixes applied: IL2CPP + ARM64, Game Activity entry point, Prioritize Input Polling, Optimize Buffer Discards disabled, Standalone render mode = Multi Pass, PoseControl/StickControl defines.");
         }
@@ -170,7 +180,7 @@ namespace Liminal.SDK.Build
         /// </summary>
         public static bool IsOpenXRConfiguredForAndroidAndStandalone()
         {
-            if (!EditorBuildSettings.TryGetConfigObject<XRGeneralSettingsPerBuildTarget>(XRGeneralSettings.k_SettingsKey, out var perTarget) || perTarget == null)
+            if (!EditorBuildSettings.TryGetConfigObject<XRGeneralSettingsPerBuildTarget>(XRGeneralSettings.settingsKey, out var perTarget) || perTarget == null)
                 return false;
 
             return IsConfiguredForTarget(perTarget, BuildTargetGroup.Android)
@@ -195,6 +205,9 @@ namespace Liminal.SDK.Build
             if (androidOpenXRSettings == null || androidOpenXRSettings.latencyOptimization != OpenXRSettings.LatencyOptimization.PrioritizeInputPolling)
                 return false;
 
+            if (androidOpenXRSettings.renderMode != OpenXRSettings.RenderMode.SinglePassInstanced)
+                return false;
+
             if (!IsOptimizeBufferDiscardsDisabled(androidOpenXRSettings))
                 return false;
 
@@ -205,6 +218,8 @@ namespace Liminal.SDK.Build
             foreach (var target in DefineTargets)
             {
                 var defines = PlayerSettings.GetScriptingDefineSymbols(target);
+                if (HasDefine(defines, "PRIORITIZE_OCULUS_XR_SETTINGS"))
+                    return false;
                 foreach (var define in ValidationDefines)
                 {
                     if (!HasDefine(defines, define))
@@ -365,7 +380,7 @@ namespace Liminal.SDK.Build
 
         private static XRGeneralSettingsPerBuildTarget GetOrCreatePerBuildTargetSettings()
         {
-            EditorBuildSettings.TryGetConfigObject<XRGeneralSettingsPerBuildTarget>(XRGeneralSettings.k_SettingsKey, out var perTarget);
+            EditorBuildSettings.TryGetConfigObject<XRGeneralSettingsPerBuildTarget>(XRGeneralSettings.settingsKey, out var perTarget);
             if (perTarget != null)
                 return perTarget;
 
@@ -374,7 +389,7 @@ namespace Liminal.SDK.Build
 
             perTarget = ScriptableObject.CreateInstance<XRGeneralSettingsPerBuildTarget>();
             AssetDatabase.CreateAsset(perTarget, SettingsAssetPath);
-            EditorBuildSettings.AddConfigObject(XRGeneralSettings.k_SettingsKey, perTarget, true);
+            EditorBuildSettings.AddConfigObject(XRGeneralSettings.settingsKey, perTarget, true);
             return perTarget;
         }
     }

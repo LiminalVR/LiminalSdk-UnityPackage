@@ -39,6 +39,7 @@ Shader "FX/MirrorReflection"
                 CGPROGRAM
                 #pragma vertex vert
                 #pragma fragment frag
+                #pragma multi_compile_instancing
                 #include "UnityCG.cginc"
                 struct v2f
                 {
@@ -56,9 +57,9 @@ Shader "FX/MirrorReflection"
                 sampler2D _MainTex;
                 float4 _MainTex_ST;
 
-                // The reflection is rendered per eye with that eye's actual view/projection
-                // matrices, so sampling at the fragment's own screen position is exact on
-                // any headset/IPD - no per-device correction needed.
+                // Separate mono textures retain the supplied eye projections.
+                // Registration still depends on authored plane offsets, provider
+                // timing and GPU late latching; rendered alignment is unverified.
                 sampler2D _ReflectionTex;      // left eye, or mono when stereo is off
                 sampler2D _ReflectionTexRight;
 

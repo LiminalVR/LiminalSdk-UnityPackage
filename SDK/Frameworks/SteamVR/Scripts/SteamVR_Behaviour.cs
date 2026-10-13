@@ -122,7 +122,17 @@ namespace Valve.VR
 
         private Coroutine initializeCoroutine;
 
-#if UNITY_2018_3_OR_NEWER
+#if UNITY_6000_7_OR_NEWER
+        private IEnumerator DoInitializeSteamVR(bool forceUnityVRToOpenVR = false)
+        {
+            // Unity no longer supports switching legacy VR devices by name. Never replace
+            // the configured OpenXR loader (in particular the Quest runtime) with OpenVR.
+            Debug.LogError("[SteamVR] Legacy OpenVR startup is unavailable in Unity 6.7. Use XR Plug-in Management and the Liminal UnityXR avatar.", this);
+            forcingInitialization = false;
+            initializeCoroutine = null;
+            yield break;
+        }
+#elif UNITY_2018_3_OR_NEWER
         private bool loadedOpenVRDeviceSuccess = false;
         private IEnumerator DoInitializeSteamVR(bool forceUnityVRToOpenVR = false)
         {
@@ -159,7 +169,9 @@ namespace Valve.VR
 
         private void EnableOpenVR()
         {
+#if !UNITY_6000_7_OR_NEWER
             XRSettings.enabled = true;
+#endif
             SteamVR.Initialize(false);
             initializeCoroutine = null;
             forcingInitialization = false;

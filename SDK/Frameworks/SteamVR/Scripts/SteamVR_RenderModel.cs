@@ -734,7 +734,7 @@ namespace Valve.VR
                 UpdateComponents(OpenVR.RenderModels);
         }
 
-        Dictionary<int, string> nameCache;
+        Dictionary<Transform, string> nameCache;
 
         public void UpdateComponents(CVRRenderModels renderModels)
         {
@@ -745,7 +745,7 @@ namespace Valve.VR
                 return;
 
             if (nameCache == null)
-                nameCache = new Dictionary<int, string>();
+                nameCache = new Dictionary<Transform, string>();
 
             for (int childIndex = 0; childIndex < transform.childCount; childIndex++)
             {
@@ -753,10 +753,10 @@ namespace Valve.VR
 
                 // Cache names since accessing an object's name allocates memory.
                 string componentName;
-                if (!nameCache.TryGetValue(child.GetInstanceID(), out componentName))
+                if (!nameCache.TryGetValue(child, out componentName))
                 {
                     componentName = child.name;
-                    nameCache.Add(child.GetInstanceID(), componentName);
+                    nameCache.Add(child, componentName);
                 }
 
                 var componentState = new RenderModel_ComponentState_t();
@@ -770,7 +770,7 @@ namespace Valve.VR
                 for (int childChildIndex = 0; childChildIndex < child.childCount; childChildIndex++)
                 {
                     Transform childChild = child.GetChild(childChildIndex);
-                    int childInstanceID = childChild.GetInstanceID();
+                    var childInstanceID = childChild;
                     string childName;
                     if (!nameCache.TryGetValue(childInstanceID, out childName))
                     {

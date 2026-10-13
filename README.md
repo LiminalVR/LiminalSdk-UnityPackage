@@ -5,7 +5,22 @@
 This is a repository containing the Liminal SDK as a Unity Package. This package is used to bundle `scripts`, a `Unity Scene` and `Assets` into a `.limapp` file. The `.limapp` file is required for the Liminal Platform to run as one of our `Experiences`. 
 
 ### Unity Version
-Unity 2019.1.10f1
+Unity **6000.7.0b2 (Unity 6.7 beta)**. The primary Android target is **Meta Quest 3**.
+
+Use Android Build Support with the editor's SDK, NDK and OpenJDK. XR runs through
+Unity OpenXR, XR Interaction Toolkit and XR Hands; their versions are declared in
+`package.json`. The old Oculus XR provider is no longer used. The bundled legacy
+OVR/SteamVR types remain for existing SDK references; legacy SteamVR device-name
+startup is not supported in Unity 6.7. Use the UnityXR avatar and OpenXR for Quest
+and desktop Link.
+
+In **Liminal > Build Window > Setup**, configure XR and Android. Quest builds use
+IL2CPP, ARM64, Game Activity, Linear color, Android API 30 or newer, and OpenGL ES 3.
+GLES3 is retained to match the Liminal platform and its limapp shaders. Quest uses
+Single Pass Instanced; desktop Link retains the existing Multi Pass setting.
+Meta Quest Support, Touch/Touch Plus controller profiles and hand tracking must
+be enabled. Build the platform player and its limapps with matching Unity and XR
+versions; rebuild existing bundles for the new editor.
 
 ## Setting Up
 
@@ -40,8 +55,20 @@ The Liminal SDK uses Unity Package Manager.
 > 1. Locate YourProjectName/Packages/manifest.json
 > 2. Include Liminal SDK by adding the package name and git path. At the top, add `"com.liminal.sdk": "https://github.com/LiminalVR/Liminal-SDK-Unity-Package.git",`
 > 3. Open the Unity Project and the Liminal SDK will automatically be imported.
-> 4. Player Settings > Scripting Runtime Version `.NET 4.x Equivalent`
-> 5. Open Windows > Unity Package Manager and import Oculus (Android)
+> 4. Open **Liminal > Build Window > Setup** and configure XR and Android.
+> 5. Review **Project Settings > XR Plug-in Management > Project Validation** for Android.
+
+For automation, run Unity with `-batchmode -nographics -quit -buildTarget Android`
+and `-executeMethod Liminal.SDK.Build.QuestBuildValidation.Configure`. Run a second
+invocation with `Liminal.SDK.Build.QuestBuildValidation.Validate` after the define
+changes have compiled. `Liminal.SDK.Build.QuestBuildValidation.BuildSmokePlayer`
+also builds a development APK; supply `-liminalSmokeScene Assets/path/to/scene.unity`
+and `-liminalSmokeOutput /path/to/smoke.apk`. The smoke APK uses
+`com.liminalvr.sdk.smoketest` and does not install or launch automatically.
+In the SDK development repository, `-liminalExcludeLegacyFixtures` excludes
+`Assets/TestApp/DLLs` from that build only. Use it for SDK smoke testing when the
+legacy experience binaries have not yet been rebuilt; it does not certify those
+experiences or change their importer settings.
 
 ### Updating the SDK
 
