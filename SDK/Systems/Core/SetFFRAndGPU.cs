@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace Liminal.SDK.V2
 {
@@ -39,20 +37,14 @@ namespace Liminal.SDK.V2
             ApplyFoveation((int)FixedFoveatedRenderingLevel.Off);
         }
 
-        // Maps the 0-4 enum onto the provider-agnostic XRDisplaySubsystem.foveatedRenderingLevel,
-        // a normalized float (0 = off .. 1 = max). Flags are left at None for fixed (non gaze)
-        // foveation, matching the old Oculus FFR behaviour. Works under OpenXR and Oculus alike.
+        // Goes through OVRManager.fixedFoveatedRenderingLevel, the same path limapps' own SetFFRAndGPU
+        // scripts use: under OpenXR its bridge (OVRManager.OpenXRFoveation) maps the 0-4 level onto
+        // XRDisplaySubsystem.foveatedRenderingLevel (level / 4: 0 = off .. 1 = max) with no gaze, on every
+        // XR display, applies it once a display is running if none is yet, and remembers it (so the getter
+        // and the platform's logs agree). With the legacy Oculus plugin it uses that plugin as before.
         private static void ApplyFoveation(int level)
         {
-            var displays = new List<XRDisplaySubsystem>();
-            SubsystemManager.GetSubsystems(displays);
-
-            var normalized = Mathf.Clamp01(level / 4f);
-            foreach (var display in displays)
-            {
-                display.foveatedRenderingLevel = normalized;
-                display.foveatedRenderingFlags = XRDisplaySubsystem.FoveatedRenderingFlags.None;
-            }
+            OVRManager.fixedFoveatedRenderingLevel = (OVRManager.FixedFoveatedRenderingLevel)Mathf.Clamp(level, 0, 4);
         }
     }
 }

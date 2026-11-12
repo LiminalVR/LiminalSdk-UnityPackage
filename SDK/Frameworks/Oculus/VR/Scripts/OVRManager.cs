@@ -1007,38 +1007,203 @@ public class OVRManager : MonoBehaviour, OVRMixedRealityCaptureConfiguration
 	/// <summary>
 	/// Gets if tiled-based multi-resolution technique is supported
 	/// This feature is only supported on QCOMM-based Android devices
+	/// Liminal (Unity 6 / OpenXR): also true when the XR display can foveate (SystemInfo.foveatedRenderingCaps), or when
+	/// the running app has another foveation path for the level (OpenXRFoveation.Supported, set by the Liminal platform
+	/// when Meta's XR_FB_foveation is available; on OpenGL ES the caps are None).
 	/// </summary>
 	public static bool fixedFoveatedRenderingSupported
 	{
 		get
 		{
+#if UNITY_6000_0_OR_NEWER
+			return OVRPlugin.fixedFoveatedRenderingSupported || SystemInfo.foveatedRenderingCaps != FoveatedRenderingCaps.None ||
+				OpenXRFoveation.Supported;
+#else
 			return OVRPlugin.fixedFoveatedRenderingSupported;
+#endif
 		}
 	}
 
 	/// <summary>
 	/// Gets or sets the tiled-based multi-resolution level
 	/// This feature is only supported on QCOMM-based Android devices
+	/// Liminal (Unity 6 / OpenXR): when the legacy plugin is absent (OpenXR builds don't ship it), the level goes to
+	/// the XR display's foveation instead (OpenXRFoveation below), so limapps' existing calls keep working.
 	/// </summary>
 	public static FixedFoveatedRenderingLevel fixedFoveatedRenderingLevel
 	{
 		get
 		{
+#if UNITY_6000_0_OR_NEWER
+			if (!OVRPlugin.fixedFoveatedRenderingSupported)
+			{
+				return OpenXRFoveation.Level;
+			}
+#else
 			if (!OVRPlugin.fixedFoveatedRenderingSupported)
 			{
 				Debug.LogWarning("Fixed Foveated Rendering feature is not supported");
 			}
+#endif
 			return (FixedFoveatedRenderingLevel)OVRPlugin.fixedFoveatedRenderingLevel;
 		}
 		set
 		{
+#if UNITY_6000_0_OR_NEWER
+			if (!OVRPlugin.fixedFoveatedRenderingSupported)
+			{
+				OpenXRFoveation.Request(value);
+				return;
+			}
+#else
 			if (!OVRPlugin.fixedFoveatedRenderingSupported)
 			{
 				Debug.LogWarning("Fixed Foveated Rendering feature is not supported");
 			}
+#endif
 			OVRPlugin.fixedFoveatedRenderingLevel = (OVRPlugin.FixedFoveatedRenderingLevel)value;
 		}
 	}
+
+#if UNITY_6000_0_OR_NEWER
+	/// <summary>
+	/// Liminal: bridges the legacy fixed foveated rendering (FFR) level to OpenXR. Under OpenXR the native OVRPlugin
+	/// library isn't shipped, so OVRPlugin's version reads 0 and every OVRPlugin setter does nothing. Limapps (their own
+	/// SetFFRAndGPU scripts, quality scripts) and the platform (per-experience overrides, the reset to Off after an
+	/// experience) still set OVRManager.fixedFoveatedRenderingLevel, so that setter sends the level here. This sets
+	/// XRDisplaySubsystem.foveatedRenderingLevel on every XR display (Unity's SRP foveation API; it does nothing on
+	/// OpenGL ES, where SystemInfo.foveatedRenderingCaps is None) and raises LevelChanged, which the Liminal platform
+	/// forwards to Meta's XR_FB_foveation (works on OpenGL ES). Fixed level, no gaze. Only Unity core APIs, so the
+	/// Oculus.VR assembly needs no new references.
+	/// Notes and how to check it on a headset: Platform/Foveation-OpenXR.md in the PlatformApp-v3 repository.
+	/// Limapps should keep using OVRManager.fixedFoveatedRenderingLevel, not this type: older platform builds don't have it.
+	/// </summary>
+	public static class OpenXRFoveation
+	{
+		static readonly System.Collections.Generic.List<UnityEngine.XR.XRDisplaySubsystem> s_Displays = new System.Collections.Generic.List<UnityEngine.XR.XRDisplaySubsystem>();
+		static FixedFoveatedRenderingLevel s_Level = FixedFoveatedRenderingLevel.Off;
+		static bool s_Waiting;
+
+		/// <summary>The last level requested through OVRManager (Off until something asks).</summary>
+		public static FixedFoveatedRenderingLevel Level { get { return s_Level; } }
+
+		/// <summary>True while a requested level waits for a running XR display (asked before the XR session started).</summary>
+		public static bool Waiting { get { return s_Waiting; } }
+
+		/// <summary>
+		/// Set by the app that runs limapps when it has a foveation path for LevelChanged (the Liminal platform: Meta's
+		/// XR_FB_foveation available). Makes OVRManager.fixedFoveatedRenderingSupported true, so limapps that check it
+		/// before setting a level still set one.
+		/// </summary>
+		public static bool Supported { get; set; }
+
+		/// <summary>
+		/// Raised when the requested level changes (and on Reapply). The app that runs limapps can forward the level to a
+		/// device-specific foveation path here: the Liminal platform sends it to Meta's swapchain foveation
+		/// (XR_FB_foveation), which, unlike Unity's SRP foveation, works on OpenGL ES. Handlers must not throw.
+		/// </summary>
+		public static event System.Action<FixedFoveatedRenderingLevel> LevelChanged;
+
+		/// <summary>
+		/// Foveation strength for a legacy level: Off 0, Low 0.25, Medium 0.5, High 0.75, HighTop 1. Quest maps the
+		/// 0-1 strength onto its own discrete levels (Unity documents 0.5 as Medium).
+		/// </summary>
+		public static float StrengthOf(FixedFoveatedRenderingLevel level)
+		{
+			return Mathf.Clamp01((int)level / 4f);
+		}
+
+		/// <summary>Remembers the level and applies it now, or as soon as an XR display is running.</summary>
+		public static void Request(FixedFoveatedRenderingLevel level)
+		{
+			bool changed = level != s_Level;
+			s_Level = level;
+			if (changed)
+				RaiseLevelChanged();
+			bool applied = Apply();
+			if (changed)
+			{
+				Debug.Log("[OVRManager] Foveation " + level + " -> OpenXR strength " + StrengthOf(level).ToString("0.##") +
+					(applied ? "" : " (no running XR display yet: applied once one is)"));
+			}
+			if (!applied && !s_Waiting)
+			{
+				s_Waiting = true;
+				Application.onBeforeRender += ApplyOnceReady;
+			}
+		}
+
+		// Sets the remembered level on every XR display; true once one of them is running.
+		static bool Apply()
+		{
+			s_Displays.Clear();
+			SubsystemManager.GetSubsystems(s_Displays);
+			float strength = StrengthOf(s_Level);
+			bool running = false;
+			for (int i = 0; i < s_Displays.Count; i++)
+			{
+				UnityEngine.XR.XRDisplaySubsystem display = s_Displays[i];
+				// Write only what differs: some limapps set the level every frame.
+				if (display.foveatedRenderingFlags != UnityEngine.XR.XRDisplaySubsystem.FoveatedRenderingFlags.None)
+					display.foveatedRenderingFlags = UnityEngine.XR.XRDisplaySubsystem.FoveatedRenderingFlags.None;
+				if (display.foveatedRenderingLevel != strength)
+					display.foveatedRenderingLevel = strength;
+				running |= display.running;
+			}
+			return running;
+		}
+
+		/// <summary>
+		/// Sets the remembered level again on every XR display, e.g. after the XR session restarted (a new display
+		/// starts unfoveated). The platform calls this when its XR display changes.
+		/// </summary>
+		public static void Reapply()
+		{
+			RaiseLevelChanged();
+			if (!Apply() && !s_Waiting)
+			{
+				s_Waiting = true;
+				Application.onBeforeRender += ApplyOnceReady;
+			}
+		}
+
+		static void RaiseLevelChanged()
+		{
+			System.Action<FixedFoveatedRenderingLevel> handlers = LevelChanged;
+			if (handlers == null)
+				return;
+			try
+			{
+				handlers(s_Level);
+			}
+			catch (Exception e)
+			{
+				Debug.LogWarning("[OVRManager] Foveation LevelChanged handler failed: " + e.Message);
+			}
+		}
+
+		// Fresh state for each Play in an Editor that skips the domain reload (Enter Play Mode Options).
+		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+		static void ResetStatics()
+		{
+			if (s_Waiting)
+				Application.onBeforeRender -= ApplyOnceReady;
+			s_Waiting = false;
+			s_Level = FixedFoveatedRenderingLevel.Off;
+			LevelChanged = null;
+			Supported = false;
+		}
+
+		static void ApplyOnceReady()
+		{
+			if (!Apply())
+				return;
+			s_Waiting = false;
+			Application.onBeforeRender -= ApplyOnceReady;
+			Debug.Log("[OVRManager] Foveation " + s_Level + " applied (XR display now running)");
+		}
+	}
+#endif
 
 	/// <summary>
 	/// Let the system decide the best foveation level adaptively (Off .. fixedFoveatedRenderingLevel)
@@ -1050,7 +1215,12 @@ public class OVRManager : MonoBehaviour, OVRMixedRealityCaptureConfiguration
 		{
 			if (!OVRPlugin.fixedFoveatedRenderingSupported)
 			{
+#if UNITY_6000_0_OR_NEWER
+				// Liminal: OpenXR foveation is fixed strength only; dynamic isn't available (no warning: it's expected).
+				return false;
+#else
 				Debug.LogWarning("Fixed Foveated Rendering feature is not supported");
+#endif
 			}
 			return OVRPlugin.useDynamicFixedFoveatedRendering;
 		}
@@ -1058,7 +1228,13 @@ public class OVRManager : MonoBehaviour, OVRMixedRealityCaptureConfiguration
 		{
 			if (!OVRPlugin.fixedFoveatedRenderingSupported)
 			{
+#if UNITY_6000_0_OR_NEWER
+				// Liminal: ignored under OpenXR (fixed strength only); the level set through
+				// fixedFoveatedRenderingLevel is applied all the time. See OpenXRFoveation.
+				return;
+#else
 				Debug.LogWarning("Fixed Foveated Rendering feature is not supported");
+#endif
 			}
 			OVRPlugin.useDynamicFixedFoveatedRendering = value;
 		}
@@ -1078,18 +1254,33 @@ public class OVRManager : MonoBehaviour, OVRMixedRealityCaptureConfiguration
 	{
 		get
 		{
+#if UNITY_6000_0_OR_NEWER
+			if (!OVRPlugin.tiledMultiResSupported)
+			{
+				return (TiledMultiResLevel)(int)OpenXRFoveation.Level;
+			}
+#else
 			if (!OVRPlugin.tiledMultiResSupported)
 			{
 				Debug.LogWarning("Tiled-based Multi-resolution feature is not supported");
 			}
+#endif
 			return (TiledMultiResLevel)OVRPlugin.tiledMultiResLevel;
 		}
 		set
 		{
+#if UNITY_6000_0_OR_NEWER
+			if (!OVRPlugin.tiledMultiResSupported)
+			{
+				OpenXRFoveation.Request((FixedFoveatedRenderingLevel)(int)value);
+				return;
+			}
+#else
 			if (!OVRPlugin.tiledMultiResSupported)
 			{
 				Debug.LogWarning("Tiled-based Multi-resolution feature is not supported");
 			}
+#endif
 			OVRPlugin.tiledMultiResLevel = (OVRPlugin.TiledMultiResLevel)value;
 		}
 	}
