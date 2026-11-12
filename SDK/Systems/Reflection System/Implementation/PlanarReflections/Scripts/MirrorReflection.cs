@@ -27,6 +27,20 @@ namespace App
 
         public LayerMask m_ReflectLayers = -1;
 
+        // Opt-in: render each eye's reflection only over the part of its texture the mirror can sample, which is where
+        // the mirror is on screen for that eye, plus a margin for screen-space distortion such as ripples. Use it only
+        // with a shader that samples the reflection at the surface's own screen position (as the Liminal launcher's
+        // mirror shaders do): the rest of the texture keeps old content and is never read, so the result looks the
+        // same for less work. Off by default.
+        [Tooltip("Render the reflection only where this mirror is on screen (plus a margin). Only for shaders that sample the reflection at the surface's own screen position.")]
+        public bool m_RenderOnlyWhereSeen = false;
+
+        [Tooltip("Margin around the mirror's screen area, as a share of the reflection texture, when rendering only where it's seen.")]
+        public float m_SeenMargin = 0.03f;
+
+        [Tooltip("Screen-space distortion the mirror's shader applies before dividing by depth (a ripple strength). Twice this, divided by the depth of the mirror's edge, is added to the margin. The material's _RippleStrength counts too.")]
+        public float m_SeenDistortion = 0f;
+
         private Hashtable m_ReflectionCameras = new Hashtable(); // Camera -> Camera table
 
         private RenderTexture m_ReflectionTextureLeft = null;
@@ -36,6 +50,11 @@ namespace App
         private static bool s_InsideRendering = false;
         private static readonly int s_reflectionTex = Shader.PropertyToID("_ReflectionTex");
         private static readonly int s_reflectionTexRight = Shader.PropertyToID("_ReflectionTexRight");
+        private static readonly int s_rippleStrength = Shader.PropertyToID("_RippleStrength");
+        private static readonly Vector4[] s_corners = new Vector4[8];
+        private bool m_LoggedSeenArea;
+
+        private enum SeenArea { Whole, Part, Nothing }
 
         // Diagnostic logging - only log the first few render attempts to avoid per-frame spam.
         private int m_RenderLogCount;
@@ -270,6 +289,17 @@ namespace App
             // without throwing. Reject it before mutating any render state.
             if (!target)
                 throw new System.ArgumentNullException(nameof(target));
+
+            var seenArea = SeenArea.Whole;
+            var seen = new Rect(0f, 0f, 1f, 1f);
+            if (m_RenderOnlyWhereSeen)
+            {
+                seenArea = FindSeenArea(eyeView, eyeProjection, target, out seen);
+                // Not on screen for this eye at all: nothing samples the texture, so skip the render.
+                if (seenArea == SeenArea.Nothing)
+                    return;
+            }
+
             RenderTexture oldTargetTexture = reflectionCamera.targetTexture;
             RenderTexture oldActiveRenderTexture = RenderTexture.active;
             CameraType oldCameraType = reflectionCamera.cameraType;
@@ -281,8 +311,24 @@ namespace App
                 // Setup oblique projection matrix so that near plane is our reflection
                 // plane. This way we clip everything below/above it for free.
                 Vector4 clipPlane = CameraSpacePlane(reflectionCamera, planePos, planeNormal, 1.0f);
+                reflectionCamera.rect = new Rect(0f, 0f, 1f, 1f);
                 reflectionCamera.projectionMatrix = eyeProjection;
-                reflectionCamera.projectionMatrix = reflectionCamera.CalculateObliqueMatrix(clipPlane);
+                var oblique = reflectionCamera.CalculateObliqueMatrix(clipPlane);
+                if (seenArea == SeenArea.Part)
+                {
+                    // Only that part of the texture, every point on the same texel as in a whole render.
+                    reflectionCamera.rect = seen;
+                    reflectionCamera.projectionMatrix = CropProjection(oblique, seen);
+                    if (!m_LoggedSeenArea)
+                    {
+                        m_LoggedSeenArea = true;
+                        Debug.Log($"[MirrorReflection] Rendering '{name}' only where it's seen, e.g. x {seen.xMin:0.00}-{seen.xMax:0.00}, y {seen.yMin:0.00}-{seen.yMax:0.00} of the texture");
+                    }
+                }
+                else
+                {
+                    reflectionCamera.projectionMatrix = oblique;
+                }
 
                 reflectionCamera.cullingMask = ~(1 << 4) & m_ReflectLayers.value; // never render water layer
                 reflectionCamera.targetTexture = target;
@@ -312,6 +358,7 @@ namespace App
             finally
             {
                 GL.invertCulling = oldInvertCulling;
+                reflectionCamera.rect = new Rect(0f, 0f, 1f, 1f);
                 reflectionCamera.targetTexture = oldTargetTexture;
                 reflectionCamera.cameraType = oldCameraType;
                 RenderTexture.active = oldActiveRenderTexture;
@@ -492,6 +539,104 @@ namespace App
                 go.hideFlags = HideFlags.HideAndDontSave;
                 m_ReflectionCameras[currentCamera] = reflectionCamera;
             }
+        }
+
+        // The part of this eye's reflection texture the mirror can sample: where the mirror's bounds are on screen
+        // (clipped at the near plane), plus the margin, rounded out to whole texels. Whole when that's most of it.
+        private SeenArea FindSeenArea(Matrix4x4 eyeView, Matrix4x4 eyeProjection, RenderTexture target, out Rect seen)
+        {
+            seen = new Rect(0f, 0f, 1f, 1f);
+            if (!m_Renderer)
+                return SeenArea.Whole;
+
+            var bounds = m_Renderer.bounds;
+            var toClip = eyeProjection * eyeView;
+            var min = bounds.min;
+            var max = bounds.max;
+            for (var i = 0; i < 8; i++)
+            {
+                s_corners[i] = toClip * new Vector4((i & 1) == 0 ? min.x : max.x, (i & 2) == 0 ? min.y : max.y,
+                    (i & 4) == 0 ? min.z : max.z, 1f);
+            }
+
+            const float near = 1e-3f;
+            float left = float.MaxValue, right = float.MinValue, bottom = float.MaxValue, top = float.MinValue;
+            float leftW = near, rightW = near, bottomW = near, topW = near;
+            var any = false;
+
+            void Include(Vector4 c)
+            {
+                var x = c.x / c.w;
+                var y = c.y / c.w;
+                any = true;
+                if (x < left) { left = x; leftW = c.w; }
+                if (x > right) { right = x; rightW = c.w; }
+                if (y < bottom) { bottom = y; bottomW = c.w; }
+                if (y > top) { top = y; topW = c.w; }
+            }
+
+            for (var i = 0; i < 8; i++)
+            {
+                if (s_corners[i].w > near)
+                    Include(s_corners[i]);
+
+                // The box's edges that cross the near plane: where they cross bounds what's in front.
+                for (var bit = 1; bit < 8; bit <<= 1)
+                {
+                    if ((i & bit) != 0)
+                        continue;
+                    var a = s_corners[i];
+                    var b = s_corners[i | bit];
+                    if ((a.w > near) == (b.w > near))
+                        continue;
+                    var t = (near - a.w) / (b.w - a.w);
+                    Include(Vector4.Lerp(a, b, t));
+                }
+            }
+
+            if (!any)
+                return SeenArea.Nothing;
+
+            var distortion = Mathf.Abs(m_SeenDistortion);
+            var material = m_Renderer.sharedMaterial;
+            if (material && material.HasProperty(s_rippleStrength))
+                distortion = Mathf.Max(distortion, Mathf.Abs(material.GetFloat(s_rippleStrength)));
+
+            // Distortion added to the screen position before dividing by depth moves a sample by up to
+            // distortion / depth (as a share of the screen); twice that at the edge's own depth covers the surface
+            // just inside the edge too.
+            float Margin(float w) => m_SeenMargin + 2f * distortion / Mathf.Max(w, near);
+
+            var x0 = Mathf.Clamp01((left + 1f) * 0.5f - Margin(leftW));
+            var x1 = Mathf.Clamp01((right + 1f) * 0.5f + Margin(rightW));
+            var y0 = Mathf.Clamp01((bottom + 1f) * 0.5f - Margin(bottomW));
+            var y1 = Mathf.Clamp01((top + 1f) * 0.5f + Margin(topW));
+            if (x1 <= x0 || y1 <= y0)
+                return SeenArea.Nothing;
+
+            var width = Mathf.Max(target.width, 1);
+            var height = Mathf.Max(target.height, 1);
+            x0 = Mathf.Floor(x0 * width) / width;
+            x1 = Mathf.Ceil(x1 * width) / width;
+            y0 = Mathf.Floor(y0 * height) / height;
+            y1 = Mathf.Ceil(y1 * height) / height;
+            if ((x1 - x0) * (y1 - y0) > 0.95f)
+                return SeenArea.Whole;
+
+            seen = Rect.MinMaxRect(x0, y0, x1, y1);
+            return SeenArea.Part;
+        }
+
+        // The same projection cropped to `rect` (0..1 of the target): with the camera's viewport set to `rect`,
+        // every point lands on the same texel as the whole projection drawn into the whole texture.
+        private static Matrix4x4 CropProjection(Matrix4x4 projection, Rect rect)
+        {
+            var crop = Matrix4x4.identity;
+            crop.m00 = 1f / rect.width;
+            crop.m03 = -(2f * rect.x + rect.width - 1f) / rect.width;
+            crop.m11 = 1f / rect.height;
+            crop.m13 = -(2f * rect.y + rect.height - 1f) / rect.height;
+            return crop * projection;
         }
 
         // Extended sign: returns -1, 0 or 1 based on sign of a
