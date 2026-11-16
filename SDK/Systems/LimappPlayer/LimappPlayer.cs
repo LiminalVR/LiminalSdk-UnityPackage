@@ -71,8 +71,7 @@ namespace App.core
                 if(SceneContainer != null)
                     SceneContainer.SetActive(true);
 
-                GraphicsSettings.defaultRenderPipeline = null;
-                QualitySettings.renderPipeline = null;
+                // Limapps are URP now; keep the project's pipeline instead of dropping to Built-in.
             }
         }
 
